@@ -1,0 +1,1 @@
+Fixed Cycle Status button to update task.status via updateTask and record activity, with guard for missing status.
