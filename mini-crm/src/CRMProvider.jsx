@@ -10,14 +10,11 @@ function sortByDateDesc(a, b) {
 
 function reducer(state, action) {
   switch (action.type) {
+
     case 'SET_THEME': {
-      const theme = action.payload
       return {
         ...state,
-        settings: {
-          ...state.settings,
-          theme,
-        },
+        settings: { ...state.settings, theme: action.payload },
       }
     }
 
@@ -26,19 +23,15 @@ function reducer(state, action) {
         ...state,
         settings: {
           ...state.settings,
-          profile: {
-            ...state.settings.profile,
-            ...action.payload,
-          },
+          profile: { ...state.settings.profile, ...action.payload },
         },
       }
     }
 
     case 'CLIENT_CREATE': {
-      const client = action.payload
       return {
         ...state,
-        clients: [client, ...state.clients],
+        clients: [action.payload, ...state.clients],
       }
     }
 
@@ -60,13 +53,13 @@ function reducer(state, action) {
     }
 
     case 'TASK_CREATE': {
-      const task = action.payload
       return {
         ...state,
-        tasks: [task, ...state.tasks],
+        tasks: [action.payload, ...state.tasks],
       }
     }
 
+    // Single unified case — handles all task updates including drag-and-drop status changes
     case 'TASK_UPDATE': {
       const updated = action.payload
       return {
@@ -76,18 +69,16 @@ function reducer(state, action) {
     }
 
     case 'TASK_DELETE': {
-      const id = action.payload
       return {
         ...state,
-        tasks: state.tasks.filter((t) => t.id !== id),
+        tasks: state.tasks.filter((t) => t.id !== action.payload),
       }
     }
 
     case 'ACTIVITY_ADD': {
-      const activity = action.payload
       return {
         ...state,
-        activities: [activity, ...state.activities].sort(sortByDateDesc),
+        activities: [action.payload, ...state.activities].sort(sortByDateDesc),
       }
     }
 
@@ -99,124 +90,147 @@ function reducer(state, action) {
 export function CRMProvider({ children }) {
   const [state, dispatch] = useReducer(reducer, null, () => loadState())
 
-  // Persist to LocalStorage
   useEffect(() => {
     saveState(state)
   }, [state])
 
   useEffect(() => {
     const theme = state?.settings?.theme || 'light'
+
+    // Drive theme via CSS variables
+    document.documentElement.dataset.theme = theme
+
+    // Keep legacy Tailwind-style class for any existing `.dark` usage
     if (theme === 'dark') document.documentElement.classList.add('dark')
     else document.documentElement.classList.remove('dark')
   }, [state?.settings?.theme])
 
-  const api = useMemo(() => {
-    return {
-      state,
 
-      // Clients
-      createClient: async (data) => {
-        const id = createId('client')
-        const now = new Date().toISOString()
-        const client = {
-          id,
-          clientName: data.clientName.trim(),
-          companyName: data.companyName.trim(),
-          email: data.email.trim(),
-          phone: data.phone?.trim() || '',
-          industry: data.industry.trim(),
-          status: data.status,
-          notes: data.notes?.trim() || '',
-          createdAt: now,
-        }
-        dispatch({ type: 'CLIENT_CREATE', payload: client })
-        return client
-      },
+  const api = useMemo(() => ({
+    state,
 
-      updateClient: async (data) => {
-        const now = new Date().toISOString()
-        const client = {
-          ...data,
-          clientName: data.clientName.trim(),
-          companyName: data.companyName.trim(),
-          email: data.email.trim(),
-          phone: data.phone?.trim() || '',
-          industry: data.industry.trim(),
-          notes: data.notes?.trim() || '',
-          updatedAt: now,
-        }
-        dispatch({ type: 'CLIENT_UPDATE', payload: client })
-        return client
-      },
+    // Clients
+    createClient: async (data) => {
+      const id = createId('client')
+      const now = new Date().toISOString()
+      const client = {
+        id,
+        clientName: data.clientName.trim(),
+        companyName: data.companyName.trim(),
+        email: data.email.trim(),
+        phone: data.phone?.trim() || '',
+        industry: data.industry.trim(),
+        status: data.status,
+        notes: data.notes?.trim() || '',
+        createdAt: now,
+      }
+      dispatch({ type: 'CLIENT_CREATE', payload: client })
+      dispatch({
+        type: 'ACTIVITY_ADD',
+        payload: {
+          id: createId('act'),
+          type: 'client_created',
+          description: `Client Created: ${client.clientName}`,
+          dateTime: now,
+          meta: { clientId: client.id },
+        },
+      })
+      return client
+    },
 
-      deleteClient: async (id) => {
-        dispatch({ type: 'CLIENT_DELETE', payload: id })
-      },
+    updateClient: async (data) => {
+      const now = new Date().toISOString()
+      const client = {
+        ...data,
+        clientName: data.clientName.trim(),
+        companyName: data.companyName.trim(),
+        email: data.email.trim(),
+        phone: data.phone?.trim() || '',
+        industry: data.industry.trim(),
+        notes: data.notes?.trim() || '',
+        updatedAt: now,
+      }
+      dispatch({ type: 'CLIENT_UPDATE', payload: client })
+      return client
+    },
 
-      // Tasks
-      createTask: async (data) => {
-        const id = createId('task')
-        const now = new Date().toISOString()
-        const task = {
-          id,
-          title: data.title.trim(),
-          description: data.description?.trim() || '',
-          dueDate: data.dueDate,
-          priority: data.priority,
-          clientId: data.clientId,
-          status: data.status,
-          createdAt: now,
-          updatedAt: now,
-        }
-        dispatch({ type: 'TASK_CREATE', payload: task })
-        return task
-      },
+    deleteClient: async (id) => {
+      dispatch({ type: 'CLIENT_DELETE', payload: id })
+    },
 
-      updateTask: async (data) => {
-        const now = new Date().toISOString()
-        const task = {
-          ...data,
-          title: (data.title ?? '').trim(),
-          description: data.description?.trim() || '',
-          dueDate: data.dueDate,
-          priority: data.priority,
-          clientId: data.clientId,
-          status: data.status,
-          updatedAt: now,
-        }
-        dispatch({ type: 'TASK_UPDATE', payload: task })
-        return task
-      },
+    // Tasks
+    createTask: async (data) => {
+      const id = createId('task')
+      const now = new Date().toISOString()
+      const task = {
+        id,
+        title: data.title.trim(),
+        description: data.description?.trim() || '',
+        dueDate: data.dueDate,
+        priority: data.priority,
+        clientId: data.clientId,
+        status: data.status,
+        createdAt: now,
+        updatedAt: now,
+      }
+      dispatch({ type: 'TASK_CREATE', payload: task })
+      dispatch({
+        type: 'ACTIVITY_ADD',
+        payload: {
+          id: createId('act'),
+          type: 'task_assigned',
+          description: `Task Assigned: ${task.title}`,
+          dateTime: now,
+          meta: { taskId: task.id, clientId: task.clientId },
+        },
+      })
+      return task
+    },
 
+    updateTask: async (data) => {
+      const now = new Date().toISOString()
+      const task = {
+        ...data,
+        title: (data.title ?? '').trim(),
+        description: data.description?.trim() || '',
+        dueDate: data.dueDate,
+        priority: data.priority,
+        clientId: data.clientId,
+        status: data.status,
+        updatedAt: now,
+      }
+      dispatch({ type: 'TASK_UPDATE', payload: task })
+      return task
+    },
 
-      deleteTask: async (id) => {
-        dispatch({ type: 'TASK_DELETE', payload: id })
-      },
+    deleteTask: async (id) => {
+      dispatch({ type: 'TASK_DELETE', payload: id })
+    },
 
-      // Activity
-      addActivity: async (data) => {
-        const id = createId('act')
-        const activity = {
-          id,
-          type: data.type,
-          description: data.description?.trim() || '',
-          dateTime: data.dateTime || new Date().toISOString(),
-          meta: data.meta || {},
-        }
-        dispatch({ type: 'ACTIVITY_ADD', payload: activity })
-        return activity
-      },
+    // Activity
+    addActivity: async (data) => {
+      const id = createId('act')
+      const activity = {
+        id,
+        type: data.type,
+        description: data.description?.trim() || '',
+        dateTime: data.dateTime || new Date().toISOString(),
+        meta: data.meta || {},
+      }
+      dispatch({ type: 'ACTIVITY_ADD', payload: activity })
+      return activity
+    },
 
-      // Settings
-      setTheme: async (theme) => {
-        dispatch({ type: 'SET_THEME', payload: theme })
-      },
+    // Settings
+    setTheme: async (theme) => {
+      dispatch({ type: 'SET_THEME', payload: theme })
+    },
 
-      updateProfile: async (profile) => {
-        dispatch({ type: 'UPDATE_PROFILE', payload: profile })
-      },
-    }
-  }, [state])
+    updateProfile: async (profile) => {
+      dispatch({ type: 'UPDATE_PROFILE', payload: profile })
+    },
+
+  }), [state])
 
   return <CRMContext.Provider value={api}>{children}</CRMContext.Provider>
 }
@@ -226,7 +240,3 @@ export function useCRM() {
   if (!ctx) throw new Error('useCRM must be used within CRMProvider')
   return ctx
 }
-
-
-
-

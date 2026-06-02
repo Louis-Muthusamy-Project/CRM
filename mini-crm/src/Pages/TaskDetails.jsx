@@ -32,7 +32,7 @@ export default function TaskDetails() {
         actions={
           <div className="flex gap-2">
             <Link to="/tasks">
-              <Button variant="secondary">Back</Button>
+              <Button variant="secondary">Back </Button>
             </Link>
           </div>
         }
@@ -70,9 +70,7 @@ export default function TaskDetails() {
             <div>
               <div className="text-xs font-semibold text-[var(--text)]">Task Status</div>
               <div className="mt-2">
-                <div className="rounded-lg border border-border/70 bg-[var(--bg)] p-3 text-sm">
-                  <span className="font-semibold text-[var(--text-h)]">{task.status}</span>
-                </div>
+                  <span className="font-semibold text-sm">{task.status}</span>
               </div>
             </div>
 

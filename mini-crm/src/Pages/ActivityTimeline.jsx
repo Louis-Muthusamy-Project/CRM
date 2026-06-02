@@ -1,126 +1,256 @@
 import { useMemo, useState } from 'react'
-import PageHeader from '../components/ui/PageHeader'
-import Button from '../components/ui/Button'
-import Select from '../components/ui/Select'
-import Textarea from '../components/ui/Textarea'
-import Input from '../components/ui/Input'
-import FieldError from '../components/ui/FieldError'
 import { useCRM } from '../CRMProvider'
-import { required } from '../lib/validation'
+import {
+  FileText, Phone, Users, Bell,
+  Plus, Clock, ChevronDown,
+} from 'lucide-react'
+
+// ── constants ─────────────────────────────────────────────────────────────────
 
 const ACTIVITY_TYPES = [
-  { value: 'notes', label: 'Notes' },
-  { value: 'calls', label: 'Calls' },
-  { value: 'meetings', label: 'Meetings' },
-  { value: 'followups', label: 'Follow-ups' },
+  { value: 'notes',    label: 'Notes',       Icon: FileText, color: '#a78bfa', bg: 'rgba(167,139,250,0.12)' },
+  { value: 'calls',    label: 'Calls',       Icon: Phone,    color: '#4ade80', bg: 'rgba(74,222,128,0.12)'  },
+  { value: 'meetings', label: 'Meetings',    Icon: Users,    color: '#60a5fa', bg: 'rgba(96,165,250,0.12)'  },
+  { value: 'followups',label: 'Follow-ups',  Icon: Bell,     color: '#fbbf24', bg: 'rgba(251,191,36,0.12)'  },
 ]
 
 function typeToActivityType(type) {
-  // Map to spec-required keys for dashboard display
   if (type === 'followups') return 'followup_added'
-  if (type === 'notes') return 'notes'
-  if (type === 'calls') return 'calls'
-  if (type === 'meetings') return 'meetings'
-  return 'notes'
+  return type
 }
 
-export default function ActivityTimeline() {
-  const { state, addActivity } = useCRM()
+function getMetaByType(type) {
+  const key = type === 'followup_added' ? 'followups' : type
+  return ACTIVITY_TYPES.find(t => t.value === key)
+    ?? { label: type, Icon: FileText, color: '#6b7280', bg: 'rgba(107,114,128,0.12)' }
+}
 
-  const [type, setType] = useState('notes')
-  const [description, setDescription] = useState('')
-  const [date, setDate] = useState(() => new Date().toISOString().slice(0, 16)) // datetime-local
+function formatLabel(type) {
+  const meta = getMetaByType(type)
+  return meta.label
+}
 
-  const [errors, setErrors] = useState({})
+function relativeTime(dateStr) {
+  const diff = Date.now() - new Date(dateStr).getTime()
+  const mins = Math.floor(diff / 60000)
+  if (mins < 1)  return 'just now'
+  if (mins < 60) return `${mins}m ago`
+  const hrs = Math.floor(mins / 60)
+  if (hrs < 24)  return `${hrs}h ago`
+  return `${Math.floor(hrs / 24)}d ago`
+}
 
-  const history = useMemo(() => {
-    return [...state.activities].sort((a, b) => new Date(b.dateTime) - new Date(a.dateTime))
-  }, [state.activities])
+// ── field wrapper ─────────────────────────────────────────────────────────────
 
-  function submit() {
-    const e = {}
-    if (!required(description)) e.description = 'Description is required.'
-    setErrors(e)
-    if (Object.keys(e).length > 0) return
-
-    addActivity({
-      type: typeToActivityType(type),
-      description,
-      dateTime: new Date(date).toISOString(),
-    })
-
-    setDescription('')
-    setErrors({})
-  }
-
+function Field({ label, error, children }) {
   return (
-    <div>
-      <PageHeader title="Activity Timeline" subtitle="Add notes, call logs, meetings, and follow-ups." />
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+      <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--stat-fg)', textTransform: 'uppercase', letterSpacing: '0.6px' }}>
+        {label}
+      </label>
+      {children}
+      {error && <span style={{ fontSize: 11, color: '#f87171' }}>{error}</span>}
+    </div>
+  )
+}
 
-      <div className="grid gap-4 lg:grid-cols-2">
-        <div className="rounded-xl border border-border bg-[var(--bg)] p-5 shadow-[var(--shadow)] text-left">
-          <h2 className="text-sm font-semibold text-[var(--text-h)]">Add Activity</h2>
+const inputStyle = {
+  padding: '8px 12px',
+  background: 'var(--panel-bg)',
+  border: '0.5px solid #242428',
+  borderRadius: 8,
+  color: '#d8d8e0',
+  fontSize: 13,
+  fontFamily: 'inherit',
+  outline: 'none',
+  width: '100%',
+  boxSizing: 'border-box',
+}
 
-          <div className="mt-4 space-y-3">
-            <div>
-              <label className="text-xs font-semibold text-[var(--text)]">Activity Type</label>
-              <Select value={type} onChange={(e) => setType(e.target.value)} className="mt-2">
-                {ACTIVITY_TYPES.map((t) => (
-                  <option key={t.value} value={t.value}>
-                    {t.label}
-                  </option>
-                ))}
-              </Select>
-            </div>
+// ── type selector ─────────────────────────────────────────────────────────────
 
-            <div>
-              <label className="text-xs font-semibold text-[var(--text)]">Date & Time</label>
-              <Input type="datetime-local" value={date} onChange={(e) => setDate(e.target.value)} className="mt-2" />
-            </div>
+function TypeSelector({ value, onChange }) {
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 }}>
+      {ACTIVITY_TYPES.map(({ value: v, label, Icon, color, bg }) => {
+        const active = value === v
+        return (
+          <button
+            key={v}
+            onClick={() => onChange(v)}
+            style={{
+              display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6,
+              padding: '10px 8px', borderRadius: 10, cursor: 'pointer',
+              fontFamily: 'inherit', transition: 'all 0.15s',
+              background: active ? bg : 'transparent',
+              border: active ? `0.5px solid ${color}40` : '0.5px solid #242428',
+              color: active ? color : '#4a4a58',
+            }}
+          >
+            <Icon size={16} color={active ? color : '#333340'} />
+            <span style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.2px' }}>{label}</span>
+          </button>
+        )
+      })}
+    </div>
+  )
+}
 
-            <div>
-              <label className="text-xs font-semibold text-[var(--text)]">Description</label>
-              <Textarea rows={6} value={description} onChange={(e) => setDescription(e.target.value)} className="mt-2" />
-              <FieldError error={errors.description} />
-            </div>
+// ── history item ──────────────────────────────────────────────────────────────
 
-            <div className="flex justify-end">
-              <Button
-                onClick={submit}
-                disabled={false}
-              >
-                Add Activity
-              </Button>
-            </div>
+function HistoryItem({ activity, isLast }) {
+  const { Icon, color, bg, label } = getMetaByType(activity.type)
+  return (
+    <div style={{ display: 'flex', gap: 12, position: 'relative' }}>
+      {/* timeline line */}
+      {!isLast && (
+        <div style={{
+          position: 'absolute', left: 15, top: 32, bottom: -12,
+          width: '0.5px', background: '#1e1e24',
+        }} />
+      )}
+
+      {/* icon */}
+      <div style={{
+        width: 30, height: 30, borderRadius: 8, background: bg, flexShrink: 0,
+        display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1,
+      }}>
+        <Icon size={13} color={color} />
+      </div>
+
+      {/* content */}
+      <div style={{
+        flex: 1, background: 'var(--panel-bg)', border: '0.5px solid #1e1e24',
+        borderRadius: 8, padding: '10px 12px', marginBottom: 10,
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+          <span style={{ fontSize: 12, fontWeight: 600, color, letterSpacing: '0.2px' }}>{label}</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: '#333340' }}>
+            <Clock size={10} color="#333340" />
+            {relativeTime(activity.dateTime)}
           </div>
         </div>
-
-        <div className="rounded-xl border border-border bg-[var(--bg)] p-5 shadow-[var(--shadow)] text-left">
-          <h2 className="text-sm font-semibold text-[var(--text-h)]">History</h2>
-          <div className="mt-4 space-y-3 max-h-[520px] overflow-auto pr-1">
-            {history.length === 0 ? (
-              <div className="text-sm text-[var(--text)]">No history yet.</div>
-            ) : (
-              history.map((a) => (
-                <div key={a.id} className="rounded-lg border border-border bg-white/0 p-3">
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <div className="text-sm font-medium text-[var(--text-h)]">
-                        {a.type === 'followup_added' ? 'Follow-up Added' : a.type.charAt(0).toUpperCase() + a.type.slice(1)}
-                      </div>
-                      <div className="text-xs text-[var(--text)] mt-1">{a.description}</div>
-                    </div>
-                    <div className="text-xs text-[var(--text)] whitespace-nowrap">
-                      {new Date(a.dateTime).toLocaleString()}
-                    </div>
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
-        </div>
+        <p style={{ margin: '5px 0 0', fontSize: 12, color: '#6b6b7a', lineHeight: 1.5 }}>
+          {activity.description}
+        </p>
       </div>
     </div>
   )
 }
 
+// ── main ──────────────────────────────────────────────────────────────────────
+
+export default function ActivityTimeline() {
+  const { state, addActivity } = useCRM()
+
+  const [type, setType]               = useState('notes')
+  const [description, setDescription] = useState('')
+  const [date, setDate]               = useState(() => new Date().toISOString().slice(0, 16))
+  const [errors, setErrors]           = useState({})
+
+  const history = useMemo(() =>
+    [...state.activities].sort((a, b) => new Date(b.dateTime) - new Date(a.dateTime)),
+    [state.activities]
+  )
+
+  function submit() {
+    const e = {}
+    if (!description.trim()) e.description = 'Description is required.'
+    setErrors(e)
+    if (Object.keys(e).length) return
+    addActivity({ type: typeToActivityType(type), description, dateTime: new Date(date).toISOString() })
+    setDescription('')
+    setErrors({})
+  }
+
+  return (
+    <div style={{ fontFamily: "'DM Sans', sans-serif" }}>
+
+      {/* ── top bar ── */}
+      <div style={{
+        padding: '16px 24px', borderBottom: '0.5px solid #1e1e24',
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+      }}>
+        <div>
+          <div style={{ fontSize: 16, fontWeight: 600, color: 'var(--stat-fg)' }}>Activity</div>
+          <div style={{ fontSize: 12, color: 'var(--stat-fg)', marginTop: 2 }}>Add notes, call logs, meetings, and follow-ups.</div>
+        </div>
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 6,
+          fontSize: 12, color: 'var(--stat-fg)',
+          padding: '6px 12px', borderRadius: 8,
+          background: 'var(--panel-bg)', border: '0.5px solid #242428',
+        }}>
+          <Clock size={13} color="#4a4a58" />
+          {history.length} entries
+        </div>
+      </div>
+
+      {/* ── content ── */}
+      <div style={{ padding: '20px 24px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, alignItems: 'start' }}>
+
+        {/* ── add form ── */}
+        <div style={{ background: 'var(--panel-bg)', border: '0.5px solid #242428', borderRadius: 12, padding: '18px 20px', display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--stat-fg)' }}>Add Activity</div>
+
+          <Field label="Type">
+            <TypeSelector value={type} onChange={setType} />
+          </Field>
+
+          <Field label="Date & Time">
+            <input
+              type="datetime-local"
+              value={date}
+              onChange={e => setDate(e.target.value)}
+              style={{ ...inputStyle, colorScheme: 'dark' }}
+            />
+          </Field>
+
+          <Field label="Description" error={errors.description}>
+            <textarea
+              rows={5}
+              value={description}
+              onChange={e => setDescription(e.target.value)}
+              placeholder="What happened?"
+              style={{ ...inputStyle, resize: 'vertical', lineHeight: 1.6 }}
+            />
+          </Field>
+
+          <button
+            onClick={submit}
+            style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+              padding: '9px 16px', borderRadius: 8, cursor: 'pointer',
+              fontSize: 13, fontWeight: 500, fontFamily: 'inherit',
+              background: '#5b5ef4', color: '#fff', border: 'none',
+              transition: 'opacity 0.15s',
+            }}
+            onMouseEnter={e => e.currentTarget.style.opacity = '0.85'}
+            onMouseLeave={e => e.currentTarget.style.opacity = '1'}
+          >
+            <Plus size={14} />
+            Add Activity
+          </button>
+        </div>
+
+        {/* ── history timeline ── */}
+        <div style={{ background: 'var(--panel-bg)', border: '0.5px solid #242428', borderRadius: 12, padding: '18px 20px' }}>
+          <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--stat-fg)', marginBottom: 16 }}>History</div>
+
+          <div style={{ maxHeight: 520, overflowY: 'auto', paddingRight: 4 }}>
+            {history.length === 0 ? (
+              <div style={{ fontSize: 13, color: 'var(--stat-fg)', padding: '20px 0', textAlign: 'center' }}>
+                No history yet. Add your first activity.
+              </div>
+            ) : (
+              history.map((a, i) => (
+                <HistoryItem key={a.id} activity={a} isLast={i === history.length - 1} />
+              ))
+            )}
+          </div>
+        </div>
+
+      </div>
+    </div>
+  )
+}
