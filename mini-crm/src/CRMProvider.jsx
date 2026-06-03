@@ -1,6 +1,9 @@
 import { createContext, useContext, useEffect, useMemo, useReducer } from 'react'
+import axios from 'axios'
 import { loadState, saveState } from './storage'
 import { createId } from './lib/id'
+
+
 
 const CRMContext = createContext(null)
 
@@ -82,17 +85,54 @@ function reducer(state, action) {
       }
     }
 
+    case 'BOOTSTRAP': {
+      return {
+        ...state,
+        ...action.payload,
+        settings: {
+          ...state.settings,
+          ...(action.payload.settings || {}),
+          profile: {
+            ...state.settings.profile,
+            ...((action.payload.settings || {}).profile || {}),
+          },
+        },
+        clients: Array.isArray(action.payload.clients) ? action.payload.clients : [],
+        tasks: Array.isArray(action.payload.tasks) ? action.payload.tasks : [],
+        activities: Array.isArray(action.payload.activities) ? action.payload.activities : [],
+      }
+    }
+
     default:
       return state
+
   }
 }
 
 export function CRMProvider({ children }) {
   const [state, dispatch] = useReducer(reducer, null, () => loadState())
 
+
+
+
   useEffect(() => {
     saveState(state)
   }, [state])
+
+  useEffect(() => {
+    const loadInitialState = async () => {
+      try {
+        const response = await axios.get('/api/bootstrap')
+        if (response.data?.ok) {
+          dispatch({ type: 'BOOTSTRAP', payload: response.data.state })
+        }
+      } catch (error) {
+        console.warn('CRM backend bootstrap failed', error)
+      }
+    }
+
+    loadInitialState()
+  }, [])
 
   useEffect(() => {
     const theme = state?.settings?.theme || 'light'
@@ -124,19 +164,28 @@ export function CRMProvider({ children }) {
         notes: data.notes?.trim() || '',
         createdAt: now,
       }
+
       dispatch({ type: 'CLIENT_CREATE', payload: client })
-      dispatch({
-        type: 'ACTIVITY_ADD',
-        payload: {
-          id: createId('act'),
-          type: 'client_created',
-          description: `Client Created: ${client.clientName}`,
-          dateTime: now,
-          meta: { clientId: client.id },
-        },
-      })
+
+      const activity = {
+        id: createId('act'),
+        type: 'client_created',
+        description: `Client Created: ${client.clientName}`,
+        dateTime: now,
+        meta: { clientId: client.id },
+      }
+      dispatch({ type: 'ACTIVITY_ADD', payload: activity })
+
+      try {
+        await axios.post('/api/clients', client)
+        await axios.post('/api/activities', activity)
+      } catch (error) {
+        console.warn('CRM backend save failed for createClient', error)
+      }
+
       return client
     },
+
 
     updateClient: async (data) => {
       const now = new Date().toISOString()
@@ -150,13 +199,32 @@ export function CRMProvider({ children }) {
         notes: data.notes?.trim() || '',
         updatedAt: now,
       }
+
       dispatch({ type: 'CLIENT_UPDATE', payload: client })
+
+      try {
+        await axios.put(`/api/clients/${client.id}`, client)
+      } catch (error) {
+        console.warn('CRM backend save failed for updateClient', error)
+      }
+
       return client
     },
 
+
     deleteClient: async (id) => {
       dispatch({ type: 'CLIENT_DELETE', payload: id })
+
+      try {
+        await axios.delete(`/api/clients/${id}`)
+      } catch (error) {
+        console.warn('CRM backend save failed for deleteClient', error)
+      }
     },
+
+
+
+
 
     // Tasks
     createTask: async (data) => {
@@ -173,19 +241,28 @@ export function CRMProvider({ children }) {
         createdAt: now,
         updatedAt: now,
       }
+
       dispatch({ type: 'TASK_CREATE', payload: task })
-      dispatch({
-        type: 'ACTIVITY_ADD',
-        payload: {
-          id: createId('act'),
-          type: 'task_assigned',
-          description: `Task Assigned: ${task.title}`,
-          dateTime: now,
-          meta: { taskId: task.id, clientId: task.clientId },
-        },
-      })
+
+      const activity = {
+        id: createId('act'),
+        type: 'task_assigned',
+        description: `Task Assigned: ${task.title}`,
+        dateTime: now,
+        meta: { taskId: task.id, clientId: task.clientId },
+      }
+      dispatch({ type: 'ACTIVITY_ADD', payload: activity })
+
+      try {
+        await axios.post('/api/tasks', task)
+        await axios.post('/api/activities', activity)
+      } catch (error) {
+        console.warn('CRM backend save failed for createTask', error)
+      }
+
       return task
     },
+
 
     updateTask: async (data) => {
       const now = new Date().toISOString()
@@ -199,13 +276,31 @@ export function CRMProvider({ children }) {
         status: data.status,
         updatedAt: now,
       }
+
       dispatch({ type: 'TASK_UPDATE', payload: task })
+
+      try {
+        await axios.put(`/api/tasks/${task.id}`, task)
+      } catch (error) {
+        console.warn('CRM backend save failed for updateTask', error)
+      }
+
       return task
     },
 
+
     deleteTask: async (id) => {
       dispatch({ type: 'TASK_DELETE', payload: id })
+
+      try {
+        await axios.delete(`/api/tasks/${id}`)
+      } catch (error) {
+        console.warn('CRM backend save failed for deleteTask', error)
+      }
     },
+
+
+
 
     // Activity
     addActivity: async (data) => {
@@ -217,18 +312,56 @@ export function CRMProvider({ children }) {
         dateTime: data.dateTime || new Date().toISOString(),
         meta: data.meta || {},
       }
+
       dispatch({ type: 'ACTIVITY_ADD', payload: activity })
+
+      try {
+        await axios.post('/api/activities', activity)
+      } catch (error) {
+        console.warn('CRM backend save failed for addActivity', error)
+      }
+
       return activity
     },
 
+
     // Settings
     setTheme: async (theme) => {
+      const updatedSettings = {
+        ...state.settings,
+        theme,
+      }
+
       dispatch({ type: 'SET_THEME', payload: theme })
+
+      try {
+        await axios.put('/api/settings', updatedSettings)
+      } catch (error) {
+        console.warn('CRM backend save failed for setTheme', error)
+      }
     },
 
+
     updateProfile: async (profile) => {
+      const updatedSettings = {
+        ...state.settings,
+        profile: {
+          ...state.settings.profile,
+          ...profile,
+        },
+      }
+
       dispatch({ type: 'UPDATE_PROFILE', payload: profile })
+
+      try {
+        await axios.put('/api/settings', updatedSettings)
+      } catch (error) {
+        console.warn('CRM backend save failed for updateProfile', error)
+      }
     },
+
+
+
 
   }), [state])
 

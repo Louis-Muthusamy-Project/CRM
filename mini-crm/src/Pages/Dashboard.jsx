@@ -12,6 +12,7 @@ import {
   Plus,
 } from 'lucide-react'
 
+
 // ── helpers ──────────────────────────────────────────────────────────────────
 
 const ACTIVITY_META = {
@@ -66,7 +67,8 @@ function relativeTime(dateStr) {
 
 function StatCard({ label, value, Icon, accent }) {
   return (
-    <div
+    <div 
+      className='rounded-xl border border-slate-700 p-6 transition-all duration-300 hover:border-blue-500 hover:shadow-[0_0_25px_rgba(59,130,246,0.6)]'
       style={{
         background: 'var(--panel-bg)',
         border: '0.5px solid var(--panel-border)',
@@ -82,7 +84,7 @@ function StatCard({ label, value, Icon, accent }) {
           marginBottom: 12,
         }}
       >
-        <span
+        <span 
           style={{
             fontSize: 11,
             fontWeight: 600,
@@ -94,7 +96,7 @@ function StatCard({ label, value, Icon, accent }) {
           {label}
         </span>
 
-        <div
+        <div 
           style={{
             width: 30,
             height: 30,
@@ -109,7 +111,7 @@ function StatCard({ label, value, Icon, accent }) {
         </div>
       </div>
 
-      <div style={{ fontSize: 28, fontWeight: 600, color: 'var(--stat-fg)', lineHeight: 1 }}>
+      <div style={{ fontSize: 28, fontWeight: 600, color: 'var(--stat-fg)', lineHeight: 1 }} className="stat-value">
         {value}
       </div>
     </div>
@@ -122,7 +124,14 @@ function ActivityRow({ activity }) {
   const { label, Icon, color, bg } = getActivityMeta(activity.type)
 
   return (
-    <div
+    <div className='relative overflow-hidden rounded-[20px]
+         border border-white/10
+         bg-zinc-950/80 backdrop-blur-xl
+         shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_4px_20px_rgba(0,0,0,0.2)]
+         transition-all duration-300
+         hover:-translate-y-0.5
+         hover:border-white/20
+         hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.12),0_0_0_1px_rgba(255,255,255,0.04),0_8px_30px_rgba(255,255,255,0.06),0_20px_60px_rgba(255,255,255,0.04)]'
       style={{
         display: 'flex',
         alignItems: 'center',
@@ -193,11 +202,14 @@ export default function Dashboard() {
   )
 
   return (
-    <div style={{ fontFamily: "'DM Sans', sans-serif" }}>
+    <div id="crm-page-title" style={{ fontFamily: "'DM Sans', sans-serif" }}>
+
       {/* ── top bar ── */}
       <div
+        id="crm-card-anim"
         style={{
           padding: '16px 24px',
+
           borderBottom: '0.5px solid var(--timeline-line)',
           display: 'flex',
           alignItems: 'center',
@@ -239,9 +251,7 @@ export default function Dashboard() {
         </button>
       </div>
 
-      {/* ── content ── */}
-      <div style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 20 }}>
-        {/* stat cards */}
+      <div className="anim-list" style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 20 }}>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
           <StatCard label="Total Clients" value={stats.totalClients} Icon={Users} accent="#5b5ef4" />
           <StatCard
@@ -259,7 +269,6 @@ export default function Dashboard() {
           <StatCard label="Open Tasks" value={stats.openTasks} Icon={ClipboardList} accent="#a78bfa" />
         </div>
 
-        {/* recent activities */}
         <div
           style={{
             background: 'var(--accent-bg)',

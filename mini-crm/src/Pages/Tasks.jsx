@@ -43,6 +43,7 @@ function TaskCard({ task, client, draggingId, onDragStart, onDragEnd }) {
       draggable
       onDragStart={e => onDragStart(e, task.id)}
       onDragEnd={onDragEnd}
+      className="task-card"
       style={{
         background: 'var(--panel-bg)',
         border: '0.5px solid #242428',
@@ -51,7 +52,7 @@ function TaskCard({ task, client, draggingId, onDragStart, onDragEnd }) {
         cursor: 'grab',
         userSelect: 'none',
         opacity: isDragging ? 0.35 : 1,
-        transition: 'opacity 0.15s, border-color 0.15s',
+        transition: 'opacity 0.15s, border-color 0.15s, transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1)',
         display: 'flex',
         flexDirection: 'column',
         gap: 8,
@@ -65,6 +66,10 @@ function TaskCard({ task, client, draggingId, onDragStart, onDragEnd }) {
         <p style={{ fontSize: 13, fontWeight: 500, color: '#d8d8e0', lineHeight: 1.4, margin: 0, flex: 1 }}>
           {task.title}
         </p>
+      {/* actions */}
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 2 }}>
+        <TaskActions taskId={task.id} />
+      </div>
       </div>
 
       {/* description */}
@@ -88,16 +93,12 @@ function TaskCard({ task, client, draggingId, onDragStart, onDragEnd }) {
         )}
         {task.dueDate && (
           <span style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: 'var(--stat-fg)', marginLeft: 'auto' }}>
-            <Calendar size={10} color="#4a4a58" />
+            <Calendar size={10} color="var(--stat-fg)" />
             {task.dueDate}
           </span>
         )}
       </div>
 
-      {/* actions */}
-      <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 2 }}>
-        <TaskActions taskId={task.id} />
-      </div>
     </div>
   )
 }
@@ -106,6 +107,7 @@ function TaskCard({ task, client, draggingId, onDragStart, onDragEnd }) {
 
 export default function Tasks() {
   const { state, updateTask } = useCRM()
+
 
   const [query, setQuery] = useState('')
   const [priorityFilter, setPriority] = useState('all')
@@ -168,7 +170,7 @@ export default function Tasks() {
   }
 
   return (
-    <div style={{ fontFamily: "'DM Sans', sans-serif" }}>
+    <div id="crm-page-title" style={{ fontFamily: "'DM Sans', sans-serif" }}>
 
       {/* ── top bar ── */}
       <div style={{
@@ -283,6 +285,7 @@ export default function Tasks() {
                 return (
                   <div
                     key={status}
+                    className="kanban-column"
                     onDragOver={e => { e.preventDefault(); setDragOverCol(status) }}
                     onDragLeave={() => setDragOverCol(null)}
                     onDrop={e => handleDrop(e, status)}
@@ -295,12 +298,12 @@ export default function Tasks() {
                       display: 'flex',
                       flexDirection: 'column',
                       gap: 10,
-                      transition: 'border-color 0.15s',
+                      transition: 'border-color 0.2s ease, box-shadow 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)',
                       boxShadow: isOver ? `0 0 0 3px ${accent}22` : 'none',
                     }}
                   >
                     {/* column header */}
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingBottom: 10, borderBottom: '0.5px solid #1e1e24' }}>
+                    <div className="anim-list" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingBottom: 10, borderBottom: '0.5px solid #1e1e24' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
                         <div style={{ width: 26, height: 26, borderRadius: 7, background: bg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                           <Icon size={13} color={accent} />
@@ -316,7 +319,7 @@ export default function Tasks() {
                     </div>
 
                     {/* cards */}
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8, flex: 1 }}>
+                    <div className="anim-list" style={{ display: 'flex', flexDirection: 'column', gap: 8, flex: 1 }}>
                       {colTasks.length === 0 ? (
                         <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                           <p style={{ fontSize: 12, color: '#2a2a2e', userSelect: 'none' }}>Drop tasks here</p>
@@ -353,7 +356,7 @@ export default function Tasks() {
                   style={{
                     padding: '8px 10px', borderRadius: 8,
                     background: 'var(--panel-bg)', border: '0.5px solid #242428',
-                    color: '#d8d8e0', fontSize: 13,
+                    color: 'var(--stat-fg)', fontSize: 13,
                     fontFamily: 'inherit', outline: 'none',
                   }}
                 />
@@ -367,7 +370,7 @@ export default function Tasks() {
                   style={{
                     padding: '8px 10px', borderRadius: 8,
                     background: 'var(--panel-bg)', border: '0.5px solid #242428',
-                    color: '#d8d8e0', fontSize: 13,
+                    color: 'var(--stat-fg)', fontSize: 13,
                     fontFamily: 'inherit', outline: 'none',
                   }}
                 />
@@ -399,7 +402,7 @@ export default function Tasks() {
               overflow: 'hidden',
               background: 'var(--panel-bg)',
             }}>
-              <div style={{
+              <div className="anim-slide-left" style={{
                 display: 'grid',
                 gridTemplateColumns: '2.2fr 1fr 1fr 1fr',
                 gap: 10,
@@ -416,7 +419,7 @@ export default function Tasks() {
                 <div>Due date</div>
               </div>
 
-              <div style={{ padding: '10px 10px' }}>
+              <div className="anim-slide-left" style={{ padding: '10px 10px' }}>
                 {filteredAllTasks.length === 0 ? (
                   <div style={{ padding: '22px 10px', color: '#2a2a2e', fontSize: 12, textAlign: 'center' }}>
                     No tasks found for selected filters.
@@ -438,7 +441,7 @@ export default function Tasks() {
                         }}
                       >
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                          <div style={{ color: '#d8d8e0', fontSize: 13, fontWeight: 700 }}>{t.title}</div>
+                          <div style={{ color: '#cbcbe2', fontSize: 13, fontWeight: 700 }}>{t.title}</div>
                           {t.description ? (
                             <div style={{ color: 'var(--stat-fg)', fontSize: 12, display: '-webkit-box', WebkitLineClamp: 1, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
                               {t.description}
@@ -448,17 +451,17 @@ export default function Tasks() {
                         <div style={{ color: 'var(--stat-fg)', fontSize: 12 }}>
                           {client ? client.clientName : '—'}
                         </div>
-                        <div style={{ color: '#d8d8e0', fontSize: 12, fontWeight: 700 }}>{t.status}</div>
+                        <div style={{ color: 'var(--stat-fg)', fontSize: 12, fontWeight: 700 }}>{t.status}</div>
                         <div style={{ color: 'var(--stat-fg)', fontSize: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
                           {t.dueDate ? (
                             <>
-                              <Calendar size={12} color="#4a4a58" />
+                              <Calendar size={12} color="var(--stat-fg)" />
                               <span>{t.dueDate}</span>
                             </>
                           ) : '—'}
-                        </div>
                         <div style={{ gridColumn: '1 / -1', marginTop: 6, display: 'flex', justifyContent: 'flex-end' }}>
                           <TaskActions taskId={t.id} />
+                        </div>
                         </div>
 
                       </div>

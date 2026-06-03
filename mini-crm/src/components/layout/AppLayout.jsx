@@ -31,9 +31,11 @@ export default function AppLayout() {
 
       {/* ── Sidebar ── */}
       <aside
+        id="crm-sidebar"
         className="flex flex-col"
         style={{ width: 200, background: 'var(--sidebar-bg)', borderRight: '0.5px solid var(--sidebar-border)', flexShrink: 0 }}
       >
+
 
         {/* Logo */}
         <div
@@ -110,8 +112,11 @@ export default function AppLayout() {
 
       {/* ── Main ── */}
       <main className="flex flex-col flex-1 overflow-hidden">
-        <Outlet />
+        <div id="crm-route">
+          <Outlet />
+        </div>
       </main>
+
     </div>
   )
 }

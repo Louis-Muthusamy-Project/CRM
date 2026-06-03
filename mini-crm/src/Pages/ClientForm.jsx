@@ -109,29 +109,29 @@ export default function ClientForm() {
         </div>
 
         <div className="mt-5 flex justify-end gap-2">
-          <Button
+          <Button className='bg-zinc-800 '
             disabled={hasErrors}
-            onClick={() => {
+            onClick={async () => {
               if (hasErrors) return
 
               if (existing) {
-                const updated = updateClient({ id: existing.id, ...existing, ...form })
-                addActivity({
+                const updated = await updateClient({ id: existing.id, ...existing, ...form })
+                await addActivity({
                   type: 'notes',
                   description: `Client updated: ${updated.clientName}`,
                   dateTime: new Date().toISOString(),
                   meta: { clientId: updated.id },
                 })
-                nav(`/clients/${updated.id}`)
+                nav(`/clients`)
               } else {
-                const created = createClient(form)
-                addActivity({
+                const created = await createClient(form)
+                await addActivity({
                   type: 'client_created',
                   description: `Client Created: ${created.clientName} (${created.companyName})`,
                   dateTime: new Date().toISOString(),
                   meta: { clientId: created.id },
                 })
-                nav(`/clients/${created.id}`)
+                nav(`/clients`)
               }
             }}
           >

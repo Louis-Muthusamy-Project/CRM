@@ -152,9 +152,11 @@ export default function Clients() {
                 filtered.map((c, i) => (
                   <tr
                     key={c.id}
+                    className="anim-slide-left"
                     style={{
                       borderBottom: i < filtered.length - 1 ? '0.5px solid #1a1a20' : 'none',
-                      transition: 'background 0.12s',
+                      transition: 'background 0.2s cubic-bezier(0.34, 1.56, 0.64, 1)',
+                      animationDelay: `${i * 0.05}s`,
                     }}
                     onMouseEnter={e => e.currentTarget.style.background = '#7e7a7a'}
                     onMouseLeave={e => e.currentTarget.style.background = 'transparent'}

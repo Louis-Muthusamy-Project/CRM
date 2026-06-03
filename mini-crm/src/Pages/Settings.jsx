@@ -132,7 +132,7 @@ export default function Settings() {
   }
 
   return (
-    <div style={{ fontFamily: "'DM Sans', sans-serif" }}>
+    <div className='anim-bounce' style={{ fontFamily: "'DM Sans', sans-serif" }}>
 
       {/* ── top bar ── */}
       <div style={{

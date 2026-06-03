@@ -83,6 +83,7 @@ function TypeSelector({ value, onChange }) {
               padding: '10px 8px', borderRadius: 10, cursor: 'pointer',
               fontFamily: 'inherit', transition: 'all 0.15s',
               background: active ? bg : 'transparent',
+              boxShadow: active ? `3px 3px 3px 3px ${color}40` : 'none',
               border: active ? `0.5px solid ${color}40` : '0.5px solid #242428',
               color: active ? color : '#4a4a58',
             }}
@@ -101,7 +102,7 @@ function TypeSelector({ value, onChange }) {
 function HistoryItem({ activity, isLast }) {
   const { Icon, color, bg, label } = getMetaByType(activity.type)
   return (
-    <div style={{ display: 'flex', gap: 12, position: 'relative' }}>
+    <div className="activity-item" style={{ display: 'flex', gap: 12, position: 'relative' }}>
       {/* timeline line */}
       {!isLast && (
         <div style={{
@@ -202,7 +203,7 @@ export default function ActivityTimeline() {
               type="datetime-local"
               value={date}
               onChange={e => setDate(e.target.value)}
-              style={{ ...inputStyle, colorScheme: 'dark' }}
+              style={{ ...inputStyle, colorScheme: 'var(--stat-fg)' }}
             />
           </Field>
 
@@ -237,7 +238,7 @@ export default function ActivityTimeline() {
         <div style={{ background: 'var(--panel-bg)', border: '0.5px solid #242428', borderRadius: 12, padding: '18px 20px' }}>
           <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--stat-fg)', marginBottom: 16 }}>History</div>
 
-          <div style={{ maxHeight: 520, overflowY: 'auto', paddingRight: 4 }}>
+          <div style={{ maxHeight: 520, overflowY: 'auto', paddingRight: 4 }} className="anim-list">
             {history.length === 0 ? (
               <div style={{ fontSize: 13, color: 'var(--stat-fg)', padding: '20px 0', textAlign: 'center' }}>
                 No history yet. Add your first activity.

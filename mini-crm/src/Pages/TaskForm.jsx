@@ -119,30 +119,30 @@ export default function TaskForm() {
           <Textarea rows={6} value={form.description} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))} className="mt-2" />
         </div>
 
-        <div className="mt-5 flex justify-end gap-2">
-          <Button
+        <div className="mt-5 flex justify-end gap-2 ">
+          <Button className='bg-zinc-800 '
             disabled={hasErrors || state.clients.length === 0}
-            onClick={() => {
+            onClick={async () => {
               if (hasErrors) return
               if (existing) {
-                const updated = updateTask({ ...existing, ...form })
-                addActivity({
+                const updated = await updateTask({ ...existing, ...form })
+                await addActivity({
                   type: 'task_assigned',
                   description: `Task updated: ${updated.title}`,
                   dateTime: new Date().toISOString(),
                   meta: { taskId: updated.id, clientId: updated.clientId },
                 })
-                nav(`/tasks/${updated.id}`)
+                nav(`/tasks`)
               } else {
-                const created = createTask(form)
+                const created = await createTask(form)
                 const client = state.clients.find((c) => c.id === created.clientId)
-                addActivity({
+                await addActivity({
                   type: 'task_assigned',
                   description: `Task Assigned: ${created.title} → ${client ? client.clientName : 'client'}`,
                   dateTime: new Date().toISOString(),
                   meta: { taskId: created.id, clientId: created.clientId },
                 })
-                nav(`/tasks/${created.id}`)
+                nav(`/tasks`)
               }
             }}
           >
