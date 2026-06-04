@@ -80,11 +80,11 @@ export default function ClientDetails() {
             <Link to="/clients">
               <Button variant="secondary">Back</Button>
             </Link>
-            <Button variant="ghost" onClick={() => setEditMode((v) => !v)}>
+            <Button className='hover:bg-gray-300' variant="ghost" onClick={() => setEditMode((v) => !v)}>
               {editMode ? 'Cancel Edit' : 'Edit'}
             </Button>
             {editMode ? (
-              <Button
+              <Button className="bg-blue-600 hover:bg-blue-700"
                 onClick={() => {
                   if (hasErrors) return
                   const updated = updateClient({

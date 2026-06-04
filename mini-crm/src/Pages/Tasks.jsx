@@ -6,12 +6,16 @@ import { Search, Plus, GripVertical, Calendar, User, AlertCircle, Clock, CheckCi
 
 // ── constants ─────────────────────────────────────────────────────────────────
 
-const TASK_STATUSES = ['Pending', 'In Progress', 'Completed']
+const TASK_STATUSES = ['Todo', 'In Progress', 'Completed']
 const PRIORITIES = ['Low', 'Medium', 'High']
 
+// Helper: Check if any active filters exist
+const hasActiveFilters = (statusSelectedDate) => {
+  return !!statusSelectedDate
+}
 
 const COLUMN_CONFIG = {
-  Pending:       { label: 'Pending',     Icon: Clock,          accent: '#a78bfa', bg: 'rgba(167,139,250,0.10)' },
+  Todo:       { label: 'Todo',     Icon: Clock,          accent: '#a78bfa', bg: 'rgba(167,139,250,0.10)' },
   'In Progress': { label: 'In Progress', Icon: AlertCircle,    accent: '#fbbf24', bg: 'rgba(251,191,36,0.10)'  },
   Completed:     { label: 'Completed',   Icon: CheckCircle2,   accent: '#4ade80', bg: 'rgba(74,222,128,0.10)'  },
 }
@@ -91,12 +95,22 @@ function TaskCard({ task, client, draggingId, onDragStart, onDragEnd }) {
             {client.clientName}
           </span>
         )}
-        {task.dueDate && (
-          <span style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: 'var(--stat-fg)', marginLeft: 'auto' }}>
-            <Calendar size={10} color="var(--stat-fg)" />
-            {task.dueDate}
-          </span>
-        )}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginLeft: 'auto', flexWrap: 'wrap' }}>
+          {task.startDate && (
+            <span style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: 'var(--stat-fg)' }}>
+              <Calendar size={10} color="var(--stat-fg)" />
+              <span style={{ fontWeight: 600 }}>Start</span>
+              <span>{task.startDate}</span>
+            </span>
+          )}
+          {task.dueDate && (
+            <span style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: 'var(--stat-fg)' }}>
+              <Calendar size={10} color="var(--stat-fg)" />
+              <span style={{ fontWeight: 600 }}>Due</span>
+              <span>{task.dueDate}</span>
+            </span>
+          )}
+        </div>
       </div>
 
     </div>
@@ -114,9 +128,14 @@ export default function Tasks() {
 
   const [view, setView] = useState('status') // 'status' | 'all'
 
-  // All tasks date range filter (based on dueDate)
+  // All tasks date range filter (based on startDate)
   const [fromDate, setFromDate] = useState('')
   const [toDate, setToDate] = useState('')
+
+  // Status view single selected date filter (matches task range inclusively)
+  const [statusSelectedDate, setStatusSelectedDate] = useState('')
+
+
 
   const [draggingId, setDraggingId] = useState(null)
   const [dragOverCol, setDragOverCol] = useState(null)
@@ -138,24 +157,27 @@ export default function Tasks() {
     // Normalize the upper bound to end-of-day so users expect inclusive ranges.
     if (to) to.setHours(23, 59, 59, 999)
 
-    const parseDue = (dueDate) => {
-      if (!dueDate) return null
+    const parseStart = (startDate) => {
+      if (!startDate) return null
       // Expecting YYYY-MM-DD from <input type="date">; fallback to Date parsing.
-      const d = new Date(dueDate)
+      const d = new Date(startDate)
       return Number.isNaN(d.getTime()) ? null : d
     }
 
-    return filteredBase.filter(t => {
-      const due = parseDue(t.dueDate)
-      if (!due) return false
-      if (from && due < from) return false
-      if (to && due > to) return false
-      return true
-    }).sort((a, b) => {
-      const da = a.dueDate ? new Date(a.dueDate).getTime() : 0
-      const db = b.dueDate ? new Date(b.dueDate).getTime() : 0
-      return db - da
-    })
+    return filteredBase
+      .filter((t) => {
+        const start = parseStart(t.startDate)
+        if (!start) return false
+        if (from && start < from) return false
+        if (to && start > to) return false
+        if (t.completedDate === start) return true ;else return false ;
+        return true
+      })
+      .sort((a, b) => {
+        const da = a.startDate ? new Date(a.startDate).getTime() : 0
+        const db = b.startDate ? new Date(b.startDate).getTime() : 0
+        return db - da
+      })
   }, [filteredBase, fromDate, toDate])
 
 
@@ -272,13 +294,81 @@ export default function Tasks() {
 
         {view === 'status' ? (
           <>
+      {/* status date filter (single selected date inside startDate..dueDate) */}
+            <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--stat-fg)' }}>Selected date</label>
+                <input
+                  type="date"
+                  value={statusSelectedDate}
+                  onChange={e => setStatusSelectedDate(e.target.value)}
+                  style={{
+                    padding: '8px 10px', borderRadius: 8,
+                    background: 'var(--panel-bg)', border: '0.5px solid #242428',
+                    color: 'var(--stat-fg)', fontSize: 13,
+                    fontFamily: 'inherit', outline: 'none',
+                  }}
+                />
+              </div>
+              <button
+                type="button"
+                onClick={() => setStatusSelectedDate('')}
+                style={{
+                  marginLeft: 'auto',
+                  padding: '8px 12px',
+                  borderRadius: 8,
+                  border: '0.5px solid #242428',
+                  background: 'transparent',
+                  color: '#a0a0b0',
+                  fontSize: 13,
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                }}
+              >
+                Clear date
+              </button>
+            </div>
+
+
             {/* kanban board */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
+
               {TASK_STATUSES.map(status => {
                 const { label, Icon, accent, bg } = COLUMN_CONFIG[status]
+                
                 const colTasks = filteredBase
                   .filter(t => t.status === status)
-                  .sort((a, b) => (a.dueDate > b.dueDate ? 1 : -1))
+                  .filter(t => {
+                    const isFiltered = hasActiveFilters(statusSelectedDate)
+                    // if (isFiltered && t.status === 'Completed')  return false
+                    // if (t.CompletedDate === statusSelectedDate ) return true ; else return false ;
+                    // console.log(isFiltered.completedDate.substring(0,5)  )                  
+                    
+                    if (!statusSelectedDate) return true
+
+                    // Match if selected date is within [startDate, dueDate] inclusive.
+                    // statusSelectedDate comes from <input type="date"> (YYYY-MM-DD).
+                    const selected = new Date(statusSelectedDate)
+                    selected.setHours(0, 0, 0, 0)
+
+                    const start = t.startDate ? new Date(t.startDate) : null
+                    const due = t.dueDate ? new Date(t.dueDate) : null
+
+                    if (!start || Number.isNaN(start.getTime())) return false
+                    if (!due || Number.isNaN(due.getTime())) return false
+
+                    // Normalize boundaries for inclusive comparisons.
+                    start.setHours(0, 0, 0, 0)
+                    due.setHours(23, 59, 59, 999)
+
+                    return start <= selected && selected <= due
+                  })
+                  .sort((a, b) => {
+                    const da = a.startDate ? new Date(a.startDate).getTime() : 0
+                    const db = b.startDate ? new Date(b.startDate).getTime() : 0
+                    return da - db
+                  })
+
 
                 const isOver = dragOverCol === status
 
@@ -303,7 +393,7 @@ export default function Tasks() {
                     }}
                   >
                     {/* column header */}
-                    <div className="anim-list" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingBottom: 10, borderBottom: '0.5px solid #1e1e24' }}>
+                <div className="anim-list" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingBottom: 10, borderBottom: '0.5px solid #1e1e24' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
                         <div style={{ width: 26, height: 26, borderRadius: 7, background: bg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                           <Icon size={13} color={accent} />
@@ -404,7 +494,7 @@ export default function Tasks() {
             }}>
               <div className="anim-slide-left" style={{
                 display: 'grid',
-                gridTemplateColumns: '2.2fr 1fr 1fr 1fr',
+                gridTemplateColumns: '2.2fr 1fr 1fr 1fr 1fr',
                 gap: 10,
                 padding: '12px 14px',
                 borderBottom: '0.5px solid #1e1e24',
@@ -416,6 +506,7 @@ export default function Tasks() {
                 <div>Task</div>
                 <div>Client</div>
                 <div>Status</div>
+                <div>Start date</div>
                 <div>Due date</div>
               </div>
 
@@ -452,16 +543,26 @@ export default function Tasks() {
                           {client ? client.clientName : '—'}
                         </div>
                         <div style={{ color: 'var(--stat-fg)', fontSize: 12, fontWeight: 700 }}>{t.status}</div>
-                        <div style={{ color: 'var(--stat-fg)', fontSize: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
-                          {t.dueDate ? (
-                            <>
-                              <Calendar size={12} color="var(--stat-fg)" />
-                              <span>{t.dueDate}</span>
-                            </>
-                          ) : '—'}
+                        <div style={{ color: 'var(--stat-fg)', fontSize: 12, display: 'flex', flexDirection: 'column', gap: 3 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                            {t.startDate ? (
+                              <>
+                                <Calendar size={12} color="var(--stat-fg)" />
+                                <span>{t.startDate}</span>
+                              </>
+                            ) : '—'}
+                          </div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                            {t.dueDate ? (
+                              <>
+                                <Calendar size={12} color="var(--stat-fg)" />
+                                <span>{t.dueDate}</span>
+                              </>
+                            ) : '—'}
+                          </div>
+                        </div>
                         <div style={{ gridColumn: '1 / -1', marginTop: 6, display: 'flex', justifyContent: 'flex-end' }}>
                           <TaskActions taskId={t.id} />
-                        </div>
                         </div>
 
                       </div>
@@ -476,4 +577,3 @@ export default function Tasks() {
     </div>
   )
 }
-

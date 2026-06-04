@@ -1,8 +1,11 @@
 import { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 
 import { useCRM } from '../CRMProvider'
 import { validateEmail, required } from '../lib/validation'
-import { Sun, Moon, User, Mail, Briefcase, ImageIcon, Save, Check } from 'lucide-react'
+import { clearAuth } from '../auth'
+import { Sun, Moon, User, Mail, Briefcase, ImageIcon, Save, Check, LogOut } from 'lucide-react'
+
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 
@@ -99,8 +102,10 @@ function ThemeOption({ icon: Icon, label, description, active, onClick, accent }
 // ── main ──────────────────────────────────────────────────────────────────────
 
 export default function Settings() {
+  const navigate = useNavigate()
   const { state, setTheme, updateProfile } = useCRM()
   const [form, setForm]     = useState(() => ({ ...state.settings.profile }))
+
 
   // Keep local form in sync if profile is updated elsewhere or by another render.
   useEffect(() => {
@@ -143,6 +148,29 @@ export default function Settings() {
           <div style={{ fontSize: 16, fontWeight: 600, color: 'var(--stat-fg)' }}>Settings</div>
           <div style={{ fontSize: 12, color: 'var(--stat-fg)', marginTop: 2 }}>Profile and theme preferences.</div>
         </div>
+         {/* ── logout card ── */}
+        <div style={{ background: 'var(--bg)', padding: '18px 20px', display: 'flex', flexDirection: 'column', gap: 14, gridColumn: 'span 1' }}>
+          
+
+          <button className='Logout'
+            onClick={() => {
+              clearAuth()
+              navigate('/login', { replace: true })
+            }}
+            style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+              padding: '10px 14px', borderRadius: 10, cursor: 'pointer',
+              fontSize: 13, fontWeight: 700, fontFamily: 'inherit',
+              border: '0.5px solid rgba(248,113,113,0.5)',
+              background: 'var(--panel-bg)',
+              color: '#f87171',
+              transition: 'all 0.2s',
+            }}
+          >
+            <LogOut size={16} />
+            Logout
+          </button>
+        </div>
       </div>
 
       {/* ── content ── */}
@@ -150,6 +178,7 @@ export default function Settings() {
 
         {/* ── theme card ── */}
         <div style={{ background: 'var(--panel-bg)', border: '0.5px solid #242428', borderRadius: 12, padding: '18px 20px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+
           <div>
             <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--stat-fg)' }}>Appearance</div>
             <div style={{ fontSize: 11, color: 'var(--stat-fg)', marginTop: 3 }}>Choose your preferred color theme.</div>

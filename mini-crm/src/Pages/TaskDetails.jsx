@@ -48,6 +48,11 @@ export default function TaskDetails() {
             </div>
 
             <div>
+              <div className="text-xs font-semibold text-[var(--text)]">Start Date</div>
+              <div className="mt-1 text-sm text-[var(--text)]">{task.startDate}</div>
+            </div>
+
+            <div>
               <div className="text-xs font-semibold text-[var(--text)]">Due Date</div>
               <div className="mt-1 text-sm text-[var(--text)]">{task.dueDate}</div>
             </div>
@@ -70,14 +75,21 @@ export default function TaskDetails() {
             <div>
               <div className="text-xs font-semibold text-[var(--text)]">Task Status</div>
               <div className="mt-2">
-                  <span className="font-semibold text-sm">{task.status}</span>
+                <span className="font-semibold text-sm">{task.status}</span>
               </div>
+              {task.status === 'Completed' && (
+                <div className="mt-2">
+                  <div className="text-xs font-semibold text-[var(--text)]">Completed Date</div>
+                  <div className="mt-1 text-sm text-[var(--text)]">{task.completedDate || '—'}</div>
+                </div>
+              )}
             </div>
 
             <div>
               <div className="text-xs font-semibold text-[var(--text)]">Description</div>
               <div className="mt-1 text-sm text-[var(--text)] whitespace-pre-wrap">{task.description || '—'}</div>
             </div>
+
           </div>
         </div>
       </section>

@@ -575,4 +575,42 @@ tbody tr:hover {
   }
 }
 
+:root[data-theme="dark"],
+:root {
+  --bg-primary: #0a0a0d;
+  --panel-bg: #141417;
+  --stat-fg: #d8d8e0;
+  --muted-fg: #6b6b7a;
+  --border-color: #242428;
+  --input-bg: #141417;
+  --error-color: #f87171;
+  --primary-color: #5b5ef4;
+  --primary-light: #9b9ef8;
+}
+ 
+:root[data-theme="light"] {
+  --bg-primary: #ffffff;
+  --panel-bg: #f5f5f7;
+  --stat-fg: #1a1a1f;
+  --muted-fg: #6b6b7a;
+  --border-color: #e5e5e7;
+  --input-bg: #ffffff;
+  --error-color: #dc2626;
+  --primary-color: #5b5ef4;
+  --primary-light: #4f46e5;
+}
+
+* {
+  transition: background-color 0.15s, color 0.15s, border-color 0.15s;
+}
+ 
+body {
+  background-color: var(--bg-primary);
+  color: var(--stat-fg);
+}
+ 
+.min-h-screen {
+  background-color: var(--bg-primary);
+}
+
 

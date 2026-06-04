@@ -2,10 +2,11 @@ import { createContext, useContext, useEffect, useMemo, useReducer } from 'react
 import axios from 'axios'
 import { loadState, saveState } from './storage'
 import { createId } from './lib/id'
-
-
+import { getToken } from './auth'
+import { requestQueue } from './requestQueue'
 
 const CRMContext = createContext(null)
+
 
 function sortByDateDesc(a, b) {
   return new Date(b.dateTime || b.createdAt || 0) - new Date(a.dateTime || a.createdAt || 0)
@@ -110,7 +111,15 @@ function reducer(state, action) {
 }
 
 export function CRMProvider({ children }) {
+  // Attach auth token for protected API calls (bootstrap + CRUD)
+  useEffect(() => {
+    const token = getToken()
+    if (token) axios.defaults.headers.common.Authorization = `Bearer ${token}`
+    else delete axios.defaults.headers.common.Authorization
+  }, [])
+
   const [state, dispatch] = useReducer(reducer, null, () => loadState())
+
 
 
 
@@ -122,9 +131,63 @@ export function CRMProvider({ children }) {
   useEffect(() => {
     const loadInitialState = async () => {
       try {
+        // Snapshot localStorage state before overwriting it with DB bootstrap.
+        const localSnapshot = loadState()
+
         const response = await axios.get('/api/bootstrap')
         if (response.data?.ok) {
           dispatch({ type: 'BOOTSTRAP', payload: response.data.state })
+
+          // After bootstrap, migrate any missing items from localStorage into Mongo.
+          const dbState = response.data.state || {}
+
+          const dbClientIds = new Set((dbState.clients || []).map((c) => c.id).filter(Boolean))
+          const dbTaskIds = new Set((dbState.tasks || []).map((t) => t.id).filter(Boolean))
+          const dbActivityIds = new Set((dbState.activities || []).map((a) => a.id).filter(Boolean))
+
+          const importClients = (localSnapshot.clients || []).filter((c) => c && c.id && !dbClientIds.has(c.id))
+          const importTasks = (localSnapshot.tasks || []).filter((t) => t && t.id && !dbTaskIds.has(t.id))
+          const importActivities = (localSnapshot.activities || []).filter((a) => a && a.id && !dbActivityIds.has(a.id))
+
+          if (importClients.length || importTasks.length || importActivities.length) {
+            const token = getToken()
+            const headers = token ? { Authorization: `Bearer ${token}` } : {}
+
+            // Queue imports with retry logic
+            if (importClients.length) {
+              requestQueue.enqueue({
+                method: 'POST',
+                url: '/api/import/clients',
+                data: { clients: importClients },
+                headers,
+                onError: (error) => console.warn('Failed to import clients after retries', error),
+              })
+            }
+            if (importTasks.length) {
+              requestQueue.enqueue({
+                method: 'POST',
+                url: '/api/import/tasks',
+                data: { tasks: importTasks },
+                headers,
+                onError: (error) => console.warn('Failed to import tasks after retries', error),
+              })
+            }
+            if (importActivities.length) {
+              requestQueue.enqueue({
+                method: 'POST',
+                url: '/api/import/activities',
+                data: { activities: importActivities },
+                headers,
+                onError: (error) => console.warn('Failed to import activities after retries', error),
+              })
+            }
+
+            // Refresh UI state from DB so the user immediately sees imported data.
+            const refreshed = await axios.get('/api/bootstrap')
+            if (refreshed.data?.ok) {
+              dispatch({ type: 'BOOTSTRAP', payload: refreshed.data.state })
+            }
+          }
         }
       } catch (error) {
         console.warn('CRM backend bootstrap failed', error)
@@ -136,6 +199,7 @@ export function CRMProvider({ children }) {
 
   useEffect(() => {
     const theme = state?.settings?.theme || 'light'
+
 
     // Drive theme via CSS variables
     document.documentElement.dataset.theme = theme
@@ -176,12 +240,24 @@ export function CRMProvider({ children }) {
       }
       dispatch({ type: 'ACTIVITY_ADD', payload: activity })
 
-      try {
-        await axios.post('/api/clients', client)
-        await axios.post('/api/activities', activity)
-      } catch (error) {
-        console.warn('CRM backend save failed for createClient', error)
-      }
+      const token = getToken()
+      const headers = token ? { Authorization: `Bearer ${token}` } : {}
+
+      requestQueue.enqueue({
+        method: 'POST',
+        url: '/api/clients',
+        data: client,
+        headers,
+        onError: (error) => console.warn('Failed to save client after retries', error),
+      })
+
+      requestQueue.enqueue({
+        method: 'POST',
+        url: '/api/activities',
+        data: activity,
+        headers,
+        onError: (error) => console.warn('Failed to save activity after retries', error),
+      })
 
       return client
     },
@@ -202,11 +278,16 @@ export function CRMProvider({ children }) {
 
       dispatch({ type: 'CLIENT_UPDATE', payload: client })
 
-      try {
-        await axios.put(`/api/clients/${client.id}`, client)
-      } catch (error) {
-        console.warn('CRM backend save failed for updateClient', error)
-      }
+      const token = getToken()
+      const headers = token ? { Authorization: `Bearer ${token}` } : {}
+
+      requestQueue.enqueue({
+        method: 'PUT',
+        url: `/api/clients/${client.id}`,
+        data: client,
+        headers,
+        onError: (error) => console.warn('Failed to update client after retries', error),
+      })
 
       return client
     },
@@ -215,11 +296,15 @@ export function CRMProvider({ children }) {
     deleteClient: async (id) => {
       dispatch({ type: 'CLIENT_DELETE', payload: id })
 
-      try {
-        await axios.delete(`/api/clients/${id}`)
-      } catch (error) {
-        console.warn('CRM backend save failed for deleteClient', error)
-      }
+      const token = getToken()
+      const headers = token ? { Authorization: `Bearer ${token}` } : {}
+
+      requestQueue.enqueue({
+        method: 'DELETE',
+        url: `/api/clients/${id}`,
+        headers,
+        onError: (error) => console.warn('Failed to delete client after retries', error),
+      })
     },
 
 
@@ -233,16 +318,19 @@ export function CRMProvider({ children }) {
       const task = {
         id,
         title: data.title.trim(),
+        startDate: data.startDate,
         description: data.description?.trim() || '',
         dueDate: data.dueDate,
         priority: data.priority,
         clientId: data.clientId,
         status: data.status,
+        completedDate: data.status === 'Completed' ? (data.completedDate || new Date().toISOString()) : null,
         createdAt: now,
         updatedAt: now,
       }
 
       dispatch({ type: 'TASK_CREATE', payload: task })
+
 
       const activity = {
         id: createId('act'),
@@ -253,12 +341,24 @@ export function CRMProvider({ children }) {
       }
       dispatch({ type: 'ACTIVITY_ADD', payload: activity })
 
-      try {
-        await axios.post('/api/tasks', task)
-        await axios.post('/api/activities', activity)
-      } catch (error) {
-        console.warn('CRM backend save failed for createTask', error)
-      }
+      const token = getToken()
+      const headers = token ? { Authorization: `Bearer ${token}` } : {}
+
+      requestQueue.enqueue({
+        method: 'POST',
+        url: '/api/tasks',
+        data: task,
+        headers,
+        onError: (error) => console.warn('Failed to save task after retries', error),
+      })
+
+      requestQueue.enqueue({
+        method: 'POST',
+        url: '/api/activities',
+        data: activity,
+        headers,
+        onError: (error) => console.warn('Failed to save activity after retries', error),
+      })
 
       return task
     },
@@ -269,21 +369,31 @@ export function CRMProvider({ children }) {
       const task = {
         ...data,
         title: (data.title ?? '').trim(),
+        startDate: data.startDate,
         description: data.description?.trim() || '',
         dueDate: data.dueDate,
         priority: data.priority,
         clientId: data.clientId,
         status: data.status,
+        // Preserve completedDate if present; backend will enforce correct value on status transitions.
+        completedDate: data.completedDate ?? null,
         updatedAt: now,
+
       }
 
       dispatch({ type: 'TASK_UPDATE', payload: task })
 
-      try {
-        await axios.put(`/api/tasks/${task.id}`, task)
-      } catch (error) {
-        console.warn('CRM backend save failed for updateTask', error)
-      }
+
+      const token = getToken()
+      const headers = token ? { Authorization: `Bearer ${token}` } : {}
+
+      requestQueue.enqueue({
+        method: 'PUT',
+        url: `/api/tasks/${task.id}`,
+        data: task,
+        headers,
+        onError: (error) => console.warn('Failed to update task after retries', error),
+      })
 
       return task
     },
@@ -292,11 +402,15 @@ export function CRMProvider({ children }) {
     deleteTask: async (id) => {
       dispatch({ type: 'TASK_DELETE', payload: id })
 
-      try {
-        await axios.delete(`/api/tasks/${id}`)
-      } catch (error) {
-        console.warn('CRM backend save failed for deleteTask', error)
-      }
+      const token = getToken()
+      const headers = token ? { Authorization: `Bearer ${token}` } : {}
+
+      requestQueue.enqueue({
+        method: 'DELETE',
+        url: `/api/tasks/${id}`,
+        headers,
+        onError: (error) => console.warn('Failed to delete task after retries', error),
+      })
     },
 
 
@@ -315,11 +429,16 @@ export function CRMProvider({ children }) {
 
       dispatch({ type: 'ACTIVITY_ADD', payload: activity })
 
-      try {
-        await axios.post('/api/activities', activity)
-      } catch (error) {
-        console.warn('CRM backend save failed for addActivity', error)
-      }
+      const token = getToken()
+      const headers = token ? { Authorization: `Bearer ${token}` } : {}
+
+      requestQueue.enqueue({
+        method: 'POST',
+        url: '/api/activities',
+        data: activity,
+        headers,
+        onError: (error) => console.warn('Failed to save activity after retries', error),
+      })
 
       return activity
     },
@@ -334,11 +453,16 @@ export function CRMProvider({ children }) {
 
       dispatch({ type: 'SET_THEME', payload: theme })
 
-      try {
-        await axios.put('/api/settings', updatedSettings)
-      } catch (error) {
-        console.warn('CRM backend save failed for setTheme', error)
-      }
+      const token = getToken()
+      const headers = token ? { Authorization: `Bearer ${token}` } : {}
+
+      requestQueue.enqueue({
+        method: 'PUT',
+        url: '/api/settings',
+        data: updatedSettings,
+        headers,
+        onError: (error) => console.warn('Failed to save settings after retries', error),
+      })
     },
 
 
@@ -353,11 +477,16 @@ export function CRMProvider({ children }) {
 
       dispatch({ type: 'UPDATE_PROFILE', payload: profile })
 
-      try {
-        await axios.put('/api/settings', updatedSettings)
-      } catch (error) {
-        console.warn('CRM backend save failed for updateProfile', error)
-      }
+      const token = getToken()
+      const headers = token ? { Authorization: `Bearer ${token}` } : {}
+
+      requestQueue.enqueue({
+        method: 'PUT',
+        url: '/api/settings',
+        data: updatedSettings,
+        headers,
+        onError: (error) => console.warn('Failed to update profile after retries', error),
+      })
     },
 
 
@@ -373,3 +502,4 @@ export function useCRM() {
   if (!ctx) throw new Error('useCRM must be used within CRMProvider')
   return ctx
 }
+

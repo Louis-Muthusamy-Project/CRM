@@ -163,6 +163,7 @@
   --panel-border: #242428;
   --sidebar-bg: #141417;
   --sidebar-border: #242428;
+  --calendar: invert(0) 
 }
 
 :root,
@@ -182,6 +183,7 @@
   --panel-border: #e5e7eb;
   --sidebar-bg: #f3f4f6;
   --sidebar-border: rgba(17,24,39,0.15);
+  --calendar: invert(1)
 }
 
 /* misc */
@@ -472,4 +474,11 @@ textarea::placeholder {
 
 .notification-card:hover::before {
   opacity: 1;
+}
+.Logout:hover {
+  box-shadow: 0 8px 24px rgba(255, 0, 0, 0.918);
+  transition: box-shadow 0.3s ease;
+}
+input[type="date"]::-webkit-calendar-picker-indicator {
+    filter: invert(15%) sepia(95%) saturate(6932%) hue-rotate(358deg) brightness(95%) contrast(112%);
 }

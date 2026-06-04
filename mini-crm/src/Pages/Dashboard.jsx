@@ -189,7 +189,7 @@ export default function Dashboard() {
     const totalClients = state.clients.length
     const activeClients = state.clients.filter((c) => c.status === 'Active').length
     const openTasks = state.tasks.filter((t) => t.status !== 'Completed').length
-    const pendingFollowUps = state.tasks.filter((t) => t.status === 'Pending').length
+    const pendingFollowUps = state.tasks.filter((t) => t.status === 'Todo').length
     return { totalClients, activeClients, openTasks, pendingFollowUps }
   }, [state.clients, state.tasks])
 

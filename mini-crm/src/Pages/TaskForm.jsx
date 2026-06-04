@@ -9,7 +9,7 @@ import FieldError from '../components/ui/FieldError'
 import { useCRM } from '../CRMProvider'
 import { required, validateIsoDate } from '../lib/validation'
 
-const TASK_STATUSES = ['Pending', 'In Progress', 'Completed']
+const TASK_STATUSES = ['Todo', 'In Progress', 'Completed']
 const PRIORITIES = ['Low', 'Medium', 'High']
 
 export default function TaskForm() {
@@ -24,6 +24,7 @@ export default function TaskForm() {
       ? {
           title: existing.title,
           description: existing.description,
+          startDate: existing.startDate,
           dueDate: existing.dueDate,
           priority: existing.priority,
           clientId: existing.clientId,
@@ -32,17 +33,19 @@ export default function TaskForm() {
       : {
           title: '',
           description: '',
+          startDate: '',
           dueDate: '',
           priority: 'Low',
-          clientId: state.clients[0]?.id || '',
-          status: 'Pending',
+              clientId: state.clients[0]?.id || '',
+              status: 'Todo',
         },
   )
 
   const errors = useMemo(() => {
     const e = {}
     if (!required(form.title)) e.title = 'Title is required.'
-    if (!required(form.dueDate) || !validateIsoDate(form.dueDate)) e.dueDate = 'Due date is required (YYYY-MM-DD).'
+    if (!required(form.startDate) || !validateIsoDate(form.startDate)) e.startDate = 'Start date is required (YYYY-MM-DD).'
+    if (required(form.dueDate) && !validateIsoDate(form.dueDate)) e.dueDate = 'Due date must be a valid (YYYY-MM-DD) date.'
     if (!required(form.priority)) e.priority = 'Priority is required.'
     if (!required(form.clientId)) e.clientId = 'Related client is required.'
     if (!required(form.status)) e.status = 'Status is required.'
@@ -84,7 +87,13 @@ export default function TaskForm() {
           </div>
 
           <div>
-            <label className="text-xs font-semibold text-[var(--text)]">Due Date</label>
+            <label className="text-xs font-semibold text-[var(--text)]">Start Date</label>
+            <Input type="date" value={form.startDate} onChange={(e) => setForm((f) => ({ ...f, startDate: e.target.value }))} className="mt-2" />
+            <FieldError error={errors.startDate} />
+          </div>
+
+          <div>
+            <label className="text-xs font-semibold text-[var(--text)]">Due Date (optional)</label>
             <Input type="date" value={form.dueDate} onChange={(e) => setForm((f) => ({ ...f, dueDate: e.target.value }))} className="mt-2" />
             <FieldError error={errors.dueDate} />
           </div>
