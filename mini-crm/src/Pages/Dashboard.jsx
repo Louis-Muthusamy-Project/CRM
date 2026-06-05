@@ -209,7 +209,6 @@ export default function Dashboard() {
         id="crm-card-anim"
         style={{
           padding: '16px 24px',
-
           borderBottom: '0.5px solid var(--timeline-line)',
           display: 'flex',
           alignItems: 'center',

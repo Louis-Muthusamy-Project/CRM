@@ -1,10 +1,11 @@
 import { NavLink, Outlet } from 'react-router-dom'
-import { LayoutDashboard, Users, CheckSquare, Activity, Settings as SettingsIcon, MoreVertical } from 'lucide-react'
+import { LayoutDashboard, Users, CheckSquare, Activity, Settings as SettingsIcon, Inbox, MoreVertical } from 'lucide-react'
 import { useCRM } from '../../CRMProvider'
 
 const navItems = (clientsCount, tasksCount) => [
   { to: '/', label: 'Dashboard', Icon: LayoutDashboard },
   { to: '/clients', label: 'Clients', Icon: Users, badge: clientsCount },
+  { to: '/requests', label: 'Requests', Icon: Inbox },
   { to: '/tasks', label: 'Tasks', Icon: CheckSquare, badge: tasksCount },
   { to: '/activity', label: 'Activity', Icon: Activity },
 ]

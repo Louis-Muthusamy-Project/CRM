@@ -5,6 +5,7 @@ import Dashboard from './Pages/Dashboard'
 import Clients from './Pages/Clients'
 import ClientDetails from './Pages/ClientDetails'
 import ClientForm from './Pages/ClientForm'
+import Requests from './Pages/Requests'
 import Tasks from './Pages/Tasks'
 import TaskDetails from './Pages/TaskDetails'
 import TaskForm from './Pages/TaskForm'
@@ -28,6 +29,7 @@ export default function App() {
               <Route path="/clients" element={<Clients />} />
               <Route path="/clients/new" element={<ClientForm />} />
               <Route path="/clients/:id" element={<ClientDetails />} />
+              <Route path="/requests" element={<Requests />} />
               <Route path="/tasks" element={<Tasks />} />
               <Route path="/tasks/new" element={<TaskForm />} />
               <Route path="/tasks/:id" element={<TaskDetails />} />

@@ -170,7 +170,9 @@ export default function Tasks() {
         if (!start) return false
         if (from && start < from) return false
         if (to && start > to) return false
-        if (t.completedDate === start) return true ;else return false ;
+        if (t.completedDate === start) return false
+        // if (t.completedDate?.split("T")[0] || "-" === filteredBase.statusSelectedDate) return false;
+        // console.log(t.completedDate?.split("T")[0] || "-")
         return true
       })
       .sort((a, b) => {
@@ -340,10 +342,13 @@ export default function Tasks() {
                   .filter(t => t.status === status)
                   .filter(t => {
                     const isFiltered = hasActiveFilters(statusSelectedDate)
-                    // if (isFiltered && t.status === 'Completed')  return false
-                    // if (t.CompletedDate === statusSelectedDate ) return true ; else return false ;
-                    // console.log(isFiltered.completedDate.substring(0,5)  )                  
+                    if (t.status === 'Completed') {
+                      if (!statusSelectedDate) return true
+                      if (statusSelectedDate !== t.completedDate?.split("T")[0]) return false;
+                      return true
+                    }
                     
+                        
                     if (!statusSelectedDate) return true
 
                     // Match if selected date is within [startDate, dueDate] inclusive.
@@ -494,7 +499,7 @@ export default function Tasks() {
             }}>
               <div className="anim-slide-left" style={{
                 display: 'grid',
-                gridTemplateColumns: '2.2fr 1fr 1fr 1fr 1fr',
+                gridTemplateColumns: '2.2fr 1fr 1fr 1fr ',
                 gap: 10,
                 padding: '12px 14px',
                 borderBottom: '0.5px solid #1e1e24',
@@ -506,8 +511,8 @@ export default function Tasks() {
                 <div>Task</div>
                 <div>Client</div>
                 <div>Status</div>
-                <div>Start date</div>
-                <div>Due date</div>
+                <div>Start date <br />
+                  Due date</div>
               </div>
 
               <div className="anim-slide-left" style={{ padding: '10px 10px' }}>
@@ -552,6 +557,7 @@ export default function Tasks() {
                               </>
                             ) : '—'}
                           </div>
+                          
                           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                             {t.dueDate ? (
                               <>
@@ -559,10 +565,12 @@ export default function Tasks() {
                                 <span>{t.dueDate}</span>
                               </>
                             ) : '—'}
-                          </div>
-                        </div>
-                        <div style={{ gridColumn: '1 / -1', marginTop: 6, display: 'flex', justifyContent: 'flex-end' }}>
+                            
+                        <div style={{ gridColumn: '1 / -1', marginTop: 6, display: 'flex', justifyContent: 'flex-end', alignItems: 'center' }}>
                           <TaskActions taskId={t.id} />
+                        </div>
+                          </div>
+
                         </div>
 
                       </div>
