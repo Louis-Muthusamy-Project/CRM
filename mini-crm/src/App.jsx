@@ -14,6 +14,9 @@ import Settings from './Pages/Settings'
 import Login from './Pages/Login'
 import Register from './Pages/Register'
 import RequireAuth from './components/auth/RequireAuth'
+import Projects from './Pages/Projects'
+import ProjectForm from './Pages/ProjectForm'
+
 
 export default function App() {
   return (
@@ -34,6 +37,9 @@ export default function App() {
               <Route path="/tasks/new" element={<TaskForm />} />
               <Route path="/tasks/:id" element={<TaskDetails />} />
               <Route path="/tasks/:id/edit" element={<TaskForm />} />
+              <Route path="/projects" element={<Projects />} />
+              <Route path="/projects/new" element={<ProjectForm />} />
+              <Route path="/projects/:id/edit" element={<ProjectForm />} />
               <Route path="/activity" element={<ActivityTimeline />} />
               <Route path="/settings" element={<Settings />} />
             </Route>

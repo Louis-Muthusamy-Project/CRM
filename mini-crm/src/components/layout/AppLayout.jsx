@@ -1,12 +1,15 @@
 import { NavLink, Outlet } from 'react-router-dom'
-import { LayoutDashboard, Users, CheckSquare, Activity, Settings as SettingsIcon, Inbox, MoreVertical } from 'lucide-react'
+import { LayoutDashboard, Users, CheckSquare, Activity, Settings as SettingsIcon, Inbox, MoreVertical, Briefcase } from 'lucide-react'
 import { useCRM } from '../../CRMProvider'
 
-const navItems = (clientsCount, tasksCount) => [
+
+
+const navItems = (clientsCount, tasksCount, projectsCount, requestsPendingCount) => [
   { to: '/', label: 'Dashboard', Icon: LayoutDashboard },
   { to: '/clients', label: 'Clients', Icon: Users, badge: clientsCount },
-  { to: '/requests', label: 'Requests', Icon: Inbox },
+  { to: '/requests', label: 'Requests', Icon: Inbox, badge: requestsPendingCount }, 
   { to: '/tasks', label: 'Tasks', Icon: CheckSquare, badge: tasksCount },
+  { to: '/projects', label: 'Projects', Icon: Briefcase, badge: projectsCount },
   { to: '/activity', label: 'Activity', Icon: Activity },
 ]
 
@@ -60,7 +63,14 @@ export default function AppLayout() {
         {/* Nav */}
         <nav className="flex flex-col flex-1" style={{ padding: '12px 10px', gap: 2 }}>
           <NavSection label="Menu" />
-          {navItems(state?.clients?.length ?? 0, state?.tasks?.length ?? 0).map(item => <SidebarLink key={item.to} {...item} />)}
+          {navItems(
+            state?.clients?.length ?? 0,
+            state?.tasks?.length ?? 0,
+            state?.projects?.length ?? 0,
+            (state?.requests ?? []).filter((r) => r?.requestStatus === 'Pending').length,
+          ).map(item => <SidebarLink key={item.to} {...item} />)}
+          
+
 
           <NavSection label="System" style={{ marginTop: 12 }} />
           {systemItems.map(item => <SidebarLink key={item.to} {...item} />)}
@@ -112,7 +122,7 @@ export default function AppLayout() {
       </aside>
 
       {/* ── Main ── */}
-      <main className="flex flex-col flex-1 overflow-hidden">
+      <main className="flex flex-col flex-1 overflow-hidden ">
         <div id="crm-route">
           <Outlet />
         </div>

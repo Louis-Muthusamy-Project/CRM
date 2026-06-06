@@ -121,11 +121,25 @@ class RequestQueue {
   async executeRequest(request) {
     const { method = 'GET', url, data, headers = {} } = request.config
 
+    // Attach current auth token if available and not already provided by caller
+    let authHeaders = { ...headers }
+    try {
+      // Lazy require to avoid issues in non-browser environments
+      // eslint-disable-next-line global-require
+      const { getToken } = require('./auth')
+      const token = typeof getToken === 'function' ? getToken() : null
+      if (token && !authHeaders.Authorization) {
+        authHeaders = { ...authHeaders, Authorization: `Bearer ${token}` }
+      }
+    } catch (e) {
+      // ignore if auth module not available or running in SSR/test env
+    }
+
     const response = await fetch(url, {
       method,
       headers: {
         'Content-Type': 'application/json',
-        ...headers,
+        ...authHeaders,
       },
       body: data ? JSON.stringify(data) : undefined,
     })

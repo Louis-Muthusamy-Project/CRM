@@ -1,9 +1,10 @@
 import { createContext, useContext, useEffect, useMemo, useReducer } from 'react'
 import axios from 'axios'
-import { loadState, saveState } from './storage'
+import { loadState, saveState, saveUserProfile, loadUserProfile } from './storage'
 import { createId } from './lib/id'
 import { getToken } from './auth'
 import { requestQueue } from './requestQueue'
+import { syncLocalToDatabase, findDataDiscrepancies } from './lib/dataSync'
 
 const CRMContext = createContext(null)
 
@@ -79,6 +80,29 @@ function reducer(state, action) {
       }
     }
 
+    case 'PROJECT_CREATE': {
+      return {
+        ...state,
+        projects: [action.payload, ...state.projects],
+      }
+    }
+
+    case 'PROJECT_UPDATE': {
+      const updated = action.payload
+      return {
+        ...state,
+        projects: state.projects.map((p) => (p.id === updated.id ? updated : p)),
+      }
+    }
+
+    case 'PROJECT_DELETE': {
+      const id = action.payload
+      return {
+        ...state,
+        projects: state.projects.filter((p) => p.id !== id),
+      }
+    }
+
     case 'ACTIVITY_ADD': {
       return {
         ...state,
@@ -101,8 +125,11 @@ function reducer(state, action) {
         clients: Array.isArray(action.payload.clients) ? action.payload.clients : [],
         tasks: Array.isArray(action.payload.tasks) ? action.payload.tasks : [],
         activities: Array.isArray(action.payload.activities) ? action.payload.activities : [],
+        projects: Array.isArray(action.payload.projects) ? action.payload.projects : [],
       }
     }
+
+
 
     default:
       return state
@@ -129,7 +156,13 @@ export function CRMProvider({ children }) {
   }, [state])
 
   useEffect(() => {
-    const loadInitialState = async () => {
+    // One-time migration marker in localStorage to prevent repeated imports after initial sync.
+    const MIGRATION_KEY = 'mini_crm_migrated_v1'
+
+    const loadInitialState = async () => { 
+      const alreadyMigrated = window.localStorage.getItem(MIGRATION_KEY) === '1'
+      if (alreadyMigrated) return
+
       try {
         // Snapshot localStorage state before overwriting it with DB bootstrap.
         const localSnapshot = loadState()
@@ -144,12 +177,14 @@ export function CRMProvider({ children }) {
           const dbClientIds = new Set((dbState.clients || []).map((c) => c.id).filter(Boolean))
           const dbTaskIds = new Set((dbState.tasks || []).map((t) => t.id).filter(Boolean))
           const dbActivityIds = new Set((dbState.activities || []).map((a) => a.id).filter(Boolean))
+          const dbProjectIds = new Set((dbState.projects || []).map((p) => p.id).filter(Boolean))
 
           const importClients = (localSnapshot.clients || []).filter((c) => c && c.id && !dbClientIds.has(c.id))
           const importTasks = (localSnapshot.tasks || []).filter((t) => t && t.id && !dbTaskIds.has(t.id))
           const importActivities = (localSnapshot.activities || []).filter((a) => a && a.id && !dbActivityIds.has(a.id))
+          const importProjects = (localSnapshot.projects || []).filter((p) => p && p.id && !dbProjectIds.has(p.id))
 
-          if (importClients.length || importTasks.length || importActivities.length) {
+          if (importClients.length || importTasks.length || importActivities.length || importProjects.length) {
             const token = getToken()
             const headers = token ? { Authorization: `Bearer ${token}` } : {}
 
@@ -181,14 +216,27 @@ export function CRMProvider({ children }) {
                 onError: (error) => console.warn('Failed to import activities after retries', error),
               })
             }
+            if (importProjects.length) {
+              requestQueue.enqueue({
+                method: 'POST',
+                url: '/api/import/projects',
+                data: { projects: importProjects },
+                headers,
+                onError: (error) => console.warn('Failed to import projects after retries', error),
+              })
+            }
 
             // Refresh UI state from DB so the user immediately sees imported data.
             const refreshed = await axios.get('/api/bootstrap')
             if (refreshed.data?.ok) {
               dispatch({ type: 'BOOTSTRAP', payload: refreshed.data.state })
             }
+
+            // Mark as migrated only after successful bootstrap refresh.
+            window.localStorage.setItem(MIGRATION_KEY, '1')
           }
         }
+
       } catch (error) {
         console.warn('CRM backend bootstrap failed', error)
       }
@@ -196,6 +244,79 @@ export function CRMProvider({ children }) {
 
     loadInitialState()
   }, [])
+
+  // Periodic data sync between local storage and database (every 5 minutes)
+  useEffect(() => {
+    const syncInterval = setInterval(async () => {
+      try {
+        const token = getToken()
+        const headers = token ? { Authorization: `Bearer ${token}` } : {}
+
+        // Check for discrepancies and sync any missing data
+        const discrepancies = await findDataDiscrepancies()
+
+        // If there's data missing in database, sync it
+        if (
+          discrepancies.missingInDatabase &&
+          (discrepancies.missingInDatabase.clients?.length > 0 ||
+            discrepancies.missingInDatabase.tasks?.length > 0 ||
+            discrepancies.missingInDatabase.activities?.length > 0 ||
+            discrepancies.missingInDatabase.projects?.length > 0)
+        ) {
+          console.log('Syncing missing data to database...', discrepancies.missingInDatabase)
+          await syncLocalToDatabase(state, headers)
+        }
+      } catch (error) {
+        console.warn('Periodic sync check failed:', error)
+      }
+    }, 5 * 60 * 1000) // Every 5 minutes
+
+    return () => clearInterval(syncInterval)
+  }, [state])
+
+  // Save user profile to local storage whenever it changes
+  useEffect(() => {
+    if (state?.settings?.profile) {
+      saveUserProfile(state.settings.profile)
+    }
+  }, [state?.settings?.profile])
+
+  // Data verification and sync utility functions
+  const dataSync = useMemo(
+    () => ({
+      /**
+       * Verify data consistency and sync if needed
+       */
+      verifyAndSync: async () => {
+        try {
+          const token = getToken()
+          const headers = token ? { Authorization: `Bearer ${token}` } : {}
+          const result = await syncLocalToDatabase(state, headers)
+          return { ok: true, result }
+        } catch (error) {
+          console.error('Failed to verify and sync:', error)
+          return { ok: false, error: error.message }
+        }
+      },
+
+      /**
+       * Get last stored user profile
+       */
+      getStoredProfile: () => loadUserProfile(),
+
+      /**
+       * Check for data discrepancies
+       */
+      checkDiscrepancies: async () => {
+        try {
+          return await findDataDiscrepancies()
+        } catch (error) {
+          return { error: error.message }
+        }
+      },
+    }),
+    [state],
+  )
 
   useEffect(() => {
     const theme = state?.settings?.theme || 'light'
@@ -212,6 +333,7 @@ export function CRMProvider({ children }) {
 
   const api = useMemo(() => ({
     state,
+    dataSync,
 
     // Clients
     createClient: async (data) => {
@@ -311,6 +433,90 @@ export function CRMProvider({ children }) {
 
 
 
+    // Projects
+    createProject: async (data) => {
+      const id = createId('proj')
+      const now = new Date().toISOString()
+      const project = {
+        id,
+        name: data.name.trim(),
+        description: (data.description ?? '').trim(),
+        status: data.status ?? 'Active',
+        // Optional assignment to a client (clientId is a client doc id)
+        clientId: data.clientId || null,
+        imageCount: Math.max(0, Number(data.imageCount || 0)) || 0,
+        videoCount: Math.max(0, Number(data.videoCount || 0)) || 0,
+        createdAt: now,
+        updatedAt: now,
+      }
+
+
+
+      dispatch({ type: 'PROJECT_CREATE', payload: project })
+
+      const token = getToken()
+      const headers = token ? { Authorization: `Bearer ${token}` } : {}
+
+      requestQueue.enqueue({
+        method: 'POST',
+        url: '/api/projects',
+        data: project,
+        headers,
+        onError: (error) => console.warn('Failed to save project after retries', error),
+      })
+
+      return project
+    },
+
+    updateProject: async (data) => {
+      const now = new Date().toISOString()
+      const project = {
+        ...data,
+        name: data.name.trim(),
+        description: (data.description ?? '').trim(),
+        status: data.status ?? 'Active',
+        // Preserve existing assignment unless explicitly changed
+        clientId: data.clientId || null,
+        imageCount: Math.max(0, Number(data.imageCount || 0)) || 0,
+        videoCount: Math.max(0, Number(data.videoCount || 0)) || 0,
+        updatedAt: now,
+      }
+
+
+
+      dispatch({ type: 'PROJECT_UPDATE', payload: project })
+
+      const token = getToken()
+      const headers = token ? { Authorization: `Bearer ${token}` } : {}
+
+      requestQueue.enqueue({
+        method: 'PUT',
+        url: `/api/projects/${project.id}`,
+        data: project,
+        headers,
+        onError: (error) => console.warn('Failed to update project after retries', error),
+      })
+
+      return project
+    },
+
+    deleteProject: async (id) => {
+      dispatch({ type: 'PROJECT_DELETE', payload: id })
+
+      const token = getToken()
+      const headers = token ? { Authorization: `Bearer ${token}` } : {}
+
+      requestQueue.enqueue({
+        method: 'DELETE',
+        url: `/api/projects/${id}`,
+        headers,
+        onError: (error) => console.warn('Failed to delete project after retries', error),
+      })
+    },
+
+
+
+
     // Tasks
     createTask: async (data) => {
       const id = createId('task')
@@ -324,10 +530,14 @@ export function CRMProvider({ children }) {
         priority: data.priority,
         clientId: data.clientId,
         status: data.status,
+        projectId: data.projectId || null,
+        assignedImageCount: Math.max(0, Number(data.assignedImageCount || 0)) || 0,
+        assignedVideoCount: Math.max(0, Number(data.assignedVideoCount || 0)) || 0,
         completedDate: data.status === 'Completed' ? (data.completedDate || new Date().toISOString()) : null,
         createdAt: now,
         updatedAt: now,
       }
+
 
       dispatch({ type: 'TASK_CREATE', payload: task })
 
@@ -375,11 +585,15 @@ export function CRMProvider({ children }) {
         priority: data.priority,
         clientId: data.clientId,
         status: data.status,
+        projectId: data.projectId || null,
+        assignedImageCount: Math.max(0, Number(data.assignedImageCount || 0)) || 0,
+        assignedVideoCount: Math.max(0, Number(data.assignedVideoCount || 0)) || 0,
         // Preserve completedDate if present; backend will enforce correct value on status transitions.
         completedDate: data.completedDate ?? null,
         updatedAt: now,
 
       }
+
 
       dispatch({ type: 'TASK_UPDATE', payload: task })
 
@@ -476,6 +690,9 @@ export function CRMProvider({ children }) {
       }
 
       dispatch({ type: 'UPDATE_PROFILE', payload: profile })
+
+      // Save profile to local storage immediately
+      saveUserProfile(updatedSettings.profile)
 
       const token = getToken()
       const headers = token ? { Authorization: `Bearer ${token}` } : {}

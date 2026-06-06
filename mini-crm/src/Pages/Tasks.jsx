@@ -189,9 +189,18 @@ export default function Tasks() {
     e.preventDefault()
     if (!draggingId) return
     const task = state.tasks.find(t => t.id === draggingId)
-    if (task && task.status !== status) updateTask({ ...task, status })
+
+    if (task && task.status !== status) {
+      if (status === 'Completed' && task.status !== 'In Progress') {
+        window.alert('You must move the task to "In Progress" before marking it as "Completed".')
+      } else {
+        updateTask({ ...task, status })
+      }
+    }
+
     setDraggingId(null); setDragOverCol(null)
   }
+
 
   return (
     <div id="crm-page-title" style={{ fontFamily: "'DM Sans', sans-serif" }}>
@@ -439,7 +448,6 @@ export default function Tasks() {
           </>
         ) : (
           <>
-
             {/* all tasks filters */}
             <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>

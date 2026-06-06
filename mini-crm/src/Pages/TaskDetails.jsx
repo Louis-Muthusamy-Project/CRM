@@ -90,6 +90,18 @@ export default function TaskDetails() {
               <div className="mt-1 text-sm text-[var(--text)] whitespace-pre-wrap">{task.description || '—'}</div>
             </div>
 
+            <div className="pt-3 mt-2 border-t border-border">
+              <div className="text-xs font-semibold text-[var(--text)]">Assigned Work (Project Counts)</div>
+              <div className="mt-2 text-sm text-[var(--text)]">
+                <div>
+                  <span className="font-semibold">Assigned Images:</span> {task.assignedImageCount ?? 0}
+                </div>
+                <div>
+                  <span className="font-semibold">Assigned Videos:</span> {task.assignedVideoCount ?? 0}
+                </div>
+              </div>
+            </div>
+
           </div>
         </div>
       </section>

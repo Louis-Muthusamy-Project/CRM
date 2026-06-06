@@ -144,15 +144,25 @@ function HistoryItem({ activity, isLast }) {
 export default function ActivityTimeline() {
   const { state, addActivity } = useCRM()
 
-  const [type, setType]               = useState('notes')
+  const [type, setType] = useState('notes')
   const [description, setDescription] = useState('')
-  const [date, setDate]               = useState(() => new Date().toISOString().slice(0, 16))
-  const [errors, setErrors]           = useState({})
+  const [date, setDate] = useState(() => new Date().toISOString().slice(0, 16))
+  const [errors, setErrors] = useState({})
 
-  const history = useMemo(() =>
-    [...state.activities].sort((a, b) => new Date(b.dateTime) - new Date(a.dateTime)),
+  const PAGE_SIZE = 5
+  const [page, setPage] = useState(1)
+
+  const history = useMemo(
+    () => [...state.activities].sort((a, b) => new Date(b.dateTime) - new Date(a.dateTime)),
     [state.activities]
   )
+
+  const totalPages = Math.max(1, Math.ceil(history.length / PAGE_SIZE))
+
+  const paginatedHistory = useMemo(() => {
+    const start = (page - 1) * PAGE_SIZE
+    return history.slice(start, start + PAGE_SIZE)
+  }, [history, page])
 
   function submit() {
     const e = {}
@@ -162,6 +172,12 @@ export default function ActivityTimeline() {
     addActivity({ type: typeToActivityType(type), description, dateTime: new Date(date).toISOString() })
     setDescription('')
     setErrors({})
+    setPage(1)
+  }
+
+  // Keep page valid when history changes.
+  if (page > totalPages) {
+    setPage(totalPages)
   }
 
   return (
@@ -238,14 +254,52 @@ export default function ActivityTimeline() {
         <div style={{ background: 'var(--panel-bg)', border: '0.5px solid #242428', borderRadius: 12, padding: '18px 20px' }}>
           <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--stat-fg)', marginBottom: 16 }}>History</div>
 
-          <div style={{ maxHeight: 520, overflowY: 'auto', paddingRight: 4 }} className="anim-list">
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 12 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: '#a0a0b0' }}>
+              Page {page} of {totalPages}
+            </div>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              <button
+                type="button"
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={page <= 1}
+                style={{
+                  padding: '6px 10px', borderRadius: 8,
+                  border: '0.5px solid #242428',
+                  background: page <= 1 ? 'transparent' : '#141417',
+                  color: page <= 1 ? '#4a4a58' : '#d8d8e0',
+                  fontSize: 12, fontWeight: 700,
+                  cursor: page <= 1 ? 'not-allowed' : 'pointer',
+                }}
+              >
+                Previous
+              </button>
+              <button
+                type="button"
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                disabled={page >= totalPages}
+                style={{
+                  padding: '6px 10px', borderRadius: 8,
+                  border: '0.5px solid #242428',
+                  background: page >= totalPages ? 'transparent' : '#141417',
+                  color: page >= totalPages ? '#4a4a58' : '#d8d8e0',
+                  fontSize: 12, fontWeight: 700,
+                  cursor: page >= totalPages ? 'not-allowed' : 'pointer',
+                }}
+              >
+                Next
+              </button>
+            </div>
+          </div>
+
+          <div style={{ maxHeight: 520, paddingRight: 4 }} className="anim-list">
             {history.length === 0 ? (
               <div style={{ fontSize: 13, color: 'var(--stat-fg)', padding: '20px 0', textAlign: 'center' }}>
                 No history yet. Add your first activity.
               </div>
             ) : (
-              history.map((a, i) => (
-                <HistoryItem key={a.id} activity={a} isLast={i === history.length - 1} />
+              paginatedHistory.map((a, i) => (
+                <HistoryItem key={a.id} activity={a} isLast={i === paginatedHistory.length - 1 && page === totalPages} />
               ))
             )}
           </div>
